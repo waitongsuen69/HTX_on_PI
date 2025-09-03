@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>HTX Pi Monitor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>HTX Pi Monitor</h1>
+                <div class="header-info">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span class="last-update" id="lastUpdate">Initializing...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Portfolio Summary -->
+            <section class="portfolio-summary card">
+                <h2>Portfolio Summary</h2>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <label>Total Value</label>
+                        <div class="value primary" id="totalValue">$0.00</div>
+                    </div>
+                    <div class="summary-item">
+                        <label>24h Change</label>
+                        <div class="value" id="dayChange">$0.00 (0.00%)</div>
+                    </div>
+                    <div class="summary-item">
+                        <label>Total P&L</label>
+                        <div class="value" id="totalPnl">$0.00 (0.00%)</div>
+                    </div>
+                    <div class="summary-item">
+                        <label>Positions</label>
+                        <div class="value" id="positionCount">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Positions Table -->
+            <section class="positions-section card">
+                <div class="section-header">
+                    <h2>Positions</h2>
+                    <div class="view-controls">
+                        <button class="btn btn-sm" id="toggleCompact">Compact</button>
+                        <button class="btn btn-sm" id="refreshBtn">Refresh</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="positionsTable">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Balance</th>
+                                <th>Price</th>
+                                <th>Value</th>
+                                <th>24h %</th>
+                                <th>Cost</th>
+                                <th>P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsBody">
+                            <!-- Positions will be populated here -->
+                        </tbody>
+                    </table>
+                    <div class="loading" id="loadingIndicator">
+                        <div class="spinner"></div>
+                        <span>Loading positions...</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scheduler Status -->
+            <section class="scheduler-status card">
+                <h2>System Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <label>Scheduler</label>
+                        <span id="schedulerStatus">Unknown</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Next Pull</label>
+                        <span id="nextPull">--:--</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Success Rate</label>
+                        <span id="successRate">0%</span>
+                    </div>
+                    <div class="status-item">
+                        <label>Uptime</label>
+                        <span id="uptime">0h 0m</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <span>HTX Pi Monitor v1.0.0</span>
+                <span id="connectionStatus">Connected</span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

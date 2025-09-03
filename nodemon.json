@@ -1,0 +1,21 @@
+{
+  "watch": ["src", "public"],
+  "ext": "js,json,mjs,cjs,html,css",
+  "ignore": [
+    "data/*",
+    "*.test.js",
+    "test/*",
+    "coverage/*",
+    "node_modules/*",
+    ".git/*",
+    "logs/*",
+    "*.log",
+    "*.tmp",
+    ".env"
+  ],
+  "delay": "1000",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "verbose": false
+}

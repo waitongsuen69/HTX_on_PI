@@ -1,0 +1,49 @@
+[Unit]
+Description=HTX Pi Monitor - Cryptocurrency Portfolio Monitor
+Documentation=https://github.com/htx-pi-monitor
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/home/pi
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/htx-pi-monitor
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=10
+KillMode=process
+TimeoutStopSec=30
+
+# Environment
+Environment=NODE_ENV=production
+EnvironmentFile=-/home/pi/htx-pi-monitor/.env
+
+# Logging
+StandardOutput=append:/var/log/htx-monitor.log
+StandardError=append:/var/log/htx-monitor.log
+SyslogIdentifier=htx-monitor
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/home/pi/htx-pi-monitor/data /var/log
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+# Resource limits for Raspberry Pi
+MemoryMax=256M
+CPUQuota=80%
+TasksMax=50
+
+# Network
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

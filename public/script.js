@@ -254,18 +254,39 @@ class PortfolioUI {
             totalValueEl.textContent = this.formatCurrency(snapshot.total_value_usd);
         }
         
-        if (dayChangeEl && snapshot.total_change_24h_usd !== undefined) {
-            const change24h = snapshot.total_change_24h_usd || 0;
+        if (dayChangeEl) {
             const changePct = snapshot.total_change_24h_pct || 0;
+            // Calculate 24h change in USD from percentage and total value
+            const previousValue = snapshot.total_value_usd / (1 + changePct/100);
+            const change24h = snapshot.total_value_usd - previousValue;
             dayChangeEl.textContent = `${this.formatCurrency(change24h)} (${this.formatPercentage(changePct)})`;
             dayChangeEl.className = `value ${this.getChangeClass(changePct)}`;
         }
         
-        if (totalPnlEl && snapshot.total_pnl_usd !== undefined) {
-            const pnl = snapshot.total_pnl_usd || 0;
-            const pnlPct = snapshot.total_pnl_pct || 0;
-            totalPnlEl.textContent = `${this.formatCurrency(pnl)} (${this.formatPercentage(pnlPct)})`;
-            totalPnlEl.className = `value ${this.getChangeClass(pnlPct)}`;
+        if (totalPnlEl) {
+            // Calculate total P&L from individual positions
+            let totalPnl = 0;
+            let totalCost = 0;
+            let hasAnyPnl = false;
+            
+            snapshot.positions.forEach(pos => {
+                if (pos.pnl_pct !== null && pos.avg_cost) {
+                    hasAnyPnl = true;
+                    const cost = pos.free * pos.avg_cost;
+                    const pnl = pos.value - cost;
+                    totalPnl += pnl;
+                    totalCost += cost;
+                }
+            });
+            
+            if (hasAnyPnl && totalCost > 0) {
+                const pnlPct = (totalPnl / totalCost) * 100;
+                totalPnlEl.textContent = `${this.formatCurrency(totalPnl)} (${this.formatPercentage(pnlPct)})`;
+                totalPnlEl.className = `value ${this.getChangeClass(pnlPct)}`;
+            } else {
+                totalPnlEl.textContent = '$0.00 (0.00%)';
+                totalPnlEl.className = 'value';
+            }
         }
         
         if (positionCountEl) {
@@ -329,12 +350,12 @@ class PortfolioUI {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${position.symbol}</td>
-                    <td>${this.formatNumber(position.balance)}</td>
+                    <td>${this.formatNumber(position.free)}</td>
                     <td>${this.formatCurrency(position.price)}</td>
                     <td>${this.formatCurrency(position.value)}</td>
-                    <td class="${this.getChangeClass(position.change_24h_pct)}">${this.formatPercentage(position.change_24h_pct)}</td>
+                    <td class="${this.getChangeClass(position.day_pct)}">${this.formatPercentage(position.day_pct)}</td>
                     <td>${position.avg_cost ? this.formatCurrency(position.avg_cost) : 'N/A'}</td>
-                    <td class="${this.getChangeClass(position.pnl_pct)}">${position.pnl ? this.formatCurrency(position.pnl) : 'N/A'}</td>
+                    <td class="${this.getChangeClass(position.pnl_pct)}">${position.pnl_pct ? this.formatPercentage(position.pnl_pct) : 'N/A'}</td>
                 `;
                 tableBody.appendChild(row);
             });

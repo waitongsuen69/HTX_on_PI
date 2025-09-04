@@ -53,66 +53,126 @@ class HTXClient {
   }
 
   /**
-   * Get account balances
-   * @returns {Object} - Format: { BTC: { free: 0.12, locked: 0 }, ... }
+   * Get all accounts for the current user
+   * @returns {Array} - List of account objects
    */
-  async getBalances() {
-    const path = `/v1/account/accounts/${this.accountId}/balance`;
+  async getAllAccounts() {
+    const path = '/v1/account/accounts';
     const method = 'GET';
     
-    if (this.debug) {
-      console.log(`[HTX DEBUG] Fetching balances for account: ${this.accountId}`);
-    }
+    console.log('[DEBUG] Fetching all HTX accounts...');
     
     const response = await this.retryWithBackoff(async () => {
       const params = this.createSignedParams(method, path);
       const url = `${path}?${this.buildQueryString(params)}`;
-      
-      if (this.debug) {
-        console.log(`[HTX DEBUG] Request URL: ${this.baseURL}${url.substring(0, url.indexOf('Signature'))}...`);
-        console.log(`[HTX DEBUG] Request params:`, {
-          AccessKeyId: params.AccessKeyId,
-          Timestamp: params.Timestamp,
-          SignatureMethod: params.SignatureMethod,
-          SignatureVersion: params.SignatureVersion
-        });
-      }
-      
       return await this.httpClient.get(url);
     });
-
-    // Debug log the full response structure
-    if (this.debug) {
-      console.log(`[HTX DEBUG] Response status: ${response.data.status}`);
-    }
     
     if (response.data.status !== 'ok') {
-      // Better error handling with full response details
-      if (this.debug) {
-        console.error('[HTX DEBUG] Error response data:', JSON.stringify(response.data, null, 2));
-      }
-      
-      const errorCode = response.data['err-code'] || response.data.err_code || response.data.code || 'UNKNOWN_ERROR';
-      const errorMsg = response.data['err-msg'] || response.data.err_msg || response.data.message || JSON.stringify(response.data);
-      
-      throw new Error(`HTX API error: ${errorCode} - ${errorMsg}`);
+      throw new Error(`HTX API error: ${response.data.status}`);
     }
-
-    // Transform HTX format to our format
-    const balances = {};
-    const balanceList = response.data.data?.list || [];
     
-    balanceList.forEach(item => {
-      if (item.type === 'trade' && parseFloat(item.balance) > 0) {
-        const symbol = item.currency.toUpperCase();
-        balances[symbol] = {
-          free: parseFloat(item.balance),
-          locked: 0 // HTX returns locked separately, simplified for MVP
-        };
-      }
-    });
+    const accounts = response.data.data || [];
+    console.log('[DEBUG] Found HTX accounts:', JSON.stringify(accounts, null, 2));
+    return accounts;
+  }
 
-    return balances;
+  /**
+   * Get account balances
+   * @returns {Object} - Format: { BTC: { free: 0.12, locked: 0 }, ... }
+   */
+  async getBalances() {
+    // First, fetch all accounts to see what we have
+    const accounts = await this.getAllAccounts();
+    
+    // Log account IDs and types
+    console.log('[DEBUG] Account summary:');
+    accounts.forEach(acc => {
+      console.log(`  - Account ID: ${acc.id}, Type: ${acc.type}, State: ${acc.state}, Subtype: ${acc.subtype || 'N/A'}`);
+    });
+    
+    // Aggregate balances from all relevant accounts
+    const aggregatedBalances = {};
+    const method = 'GET';
+    
+    // Check balances for spot and deposit-earning accounts only
+    const relevantAccounts = accounts.filter(acc => 
+      acc.state === 'working' && 
+      (acc.type === 'spot' || acc.type === 'deposit-earning')
+    );
+    
+    console.log(`[DEBUG] Checking balances for ${relevantAccounts.length} accounts...`);
+    
+    for (const account of relevantAccounts) {
+      const path = `/v1/account/accounts/${account.id}/balance`;
+      
+      console.log(`[DEBUG] Fetching balances for ${account.type} account ${account.id}...`);
+      
+      try {
+        const response = await this.retryWithBackoff(async () => {
+          const params = this.createSignedParams(method, path);
+          const url = `${path}?${this.buildQueryString(params)}`;
+          return await this.httpClient.get(url);
+        });
+        
+        if (response.data.status === 'ok') {
+          const balanceList = response.data.data?.list || [];
+          
+          // Log non-zero balances for this account
+          const nonZeroBalances = balanceList.filter(item => 
+            item.type === 'trade' && parseFloat(item.balance) > 0
+          );
+          
+          if (nonZeroBalances.length > 0) {
+            console.log(`[DEBUG] Found ${nonZeroBalances.length} non-zero balances in ${account.type} account ${account.id}:`);
+            nonZeroBalances.forEach(item => {
+              console.log(`  - ${item.currency.toUpperCase()}: ${item.balance}`);
+            });
+          }
+          
+          // Debug: Log ETH items specifically for earning account
+          if (account.type === 'deposit-earning') {
+            const ethItems = balanceList.filter(item => 
+              item.currency && item.currency.toLowerCase() === 'eth'
+            );
+            if (ethItems.length > 0) {
+              console.log('[DEBUG] ETH items in deposit-earning account:', JSON.stringify(ethItems, null, 2));
+            }
+          }
+          
+          // Aggregate balances - check 'trade', 'saving', and 'lending' types for earning account
+          balanceList.forEach(item => {
+            const validTypes = account.type === 'deposit-earning' 
+              ? ['trade', 'saving', 'lending', 'frozen'] 
+              : ['trade'];
+            
+            if (validTypes.includes(item.type) && parseFloat(item.balance) > 0) {
+              const symbol = item.currency.toUpperCase();
+              const balance = parseFloat(item.balance);
+              
+              console.log(`[DEBUG] Adding ${symbol} from ${account.type} (type: ${item.type}): ${balance}`);
+              
+              if (aggregatedBalances[symbol]) {
+                aggregatedBalances[symbol].free += balance;
+              } else {
+                aggregatedBalances[symbol] = {
+                  free: balance,
+                  locked: 0
+                };
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`[DEBUG] Error fetching balance for account ${account.id}:`, error.message);
+      }
+    }
+    
+    console.log('[DEBUG] Final aggregated balances:', Object.entries(aggregatedBalances).map(([symbol, data]) => 
+      `${symbol}: ${data.free}`
+    ).join(', '));
+    
+    return aggregatedBalances;
   }
 
   /**

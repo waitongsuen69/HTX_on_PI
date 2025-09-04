@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "dev:clean": "npm run kill-port && npm run dev",
-    "kill-port": "lsof -ti:8080 | xargs kill -9 2>/dev/null || echo 'Port 8080 cleared'",
+    "kill-port": "lsof -ti:$(grep '^PORT=' .env | cut -d= -f2 || echo 8080) | xargs kill -9 2>/dev/null || echo 'Port cleared'",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=unit",

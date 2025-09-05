@@ -158,6 +158,11 @@ async function getPrices(symbols) {
       out[base] = { price: last, day_pct: dayPct };
     }
   }
+  // Stablecoin fallbacks for USD ref: ensure USDT/USDC valued
+  const stableFallback = { USDT: 1, USDC: 1 };
+  for (const s of symbols.map(s => s.toUpperCase())) {
+    if (stableFallback[s] && !out[s]) out[s] = { price: stableFallback[s], day_pct: 0 };
+  }
   return out; // { BTC: { price, day_pct }, ... }
 }
 

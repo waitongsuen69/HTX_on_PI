@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 8080);
 const BIND_ADDR = process.env.BIND_ADDR || '0.0.0.0';
 const REF_FIAT = process.env.REF_FIAT || 'USD';
 const INTERVAL_MS = Number(process.env.PULL_INTERVAL_MS || 60_000);
+const MIN_USD_IGNORE = Number(process.env.MIN_USD_IGNORE || 10);
 
 const app = express();
 app.disable('x-powered-by');
@@ -27,7 +28,7 @@ const publicDir = path.join(process.cwd(), 'public');
 app.use(express.static(publicDir));
 
 // APIs
-const scheduler = createScheduler({ intervalMs: INTERVAL_MS, logger: console, refFiat: REF_FIAT });
+const scheduler = createScheduler({ intervalMs: INTERVAL_MS, logger: console, refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE });
 
 // Optional flags
 // - DRY_RUN: seed a synthetic snapshot and skip scheduler
@@ -77,7 +78,7 @@ app.get('/api/history', (req, res) => {
 
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');
-  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}`);
+  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}`);
   // In NO_LISTEN mode, avoid starting the scheduler (which may require network).
   process.exit(0);
 }
@@ -86,7 +87,7 @@ const server = app.listen(PORT, BIND_ADDR, () => {
   const redactedKey = (process.env.HTX_ACCESS_KEY || '').slice(0, 3) + '***';
   // For simplicity, display localhost URL for users even if binding to a different interface.
   console.log(`HTX Pi Monitor listening on http://localhost:${PORT}`);
-  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; ACCESS_KEY=${redactedKey}`);
+  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}; ACCESS_KEY=${redactedKey}`);
   if (!DRY_RUN) scheduler.loop();
 });
 

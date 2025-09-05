@@ -16,6 +16,7 @@ Environment
 
 - `PORT` default 8080; `BIND_ADDR` default 0.0.0.0
 - `REF_FIAT` default USD; `PULL_INTERVAL_MS` default 60000
+- `MIN_USD_IGNORE` default 10 (ignore positions worth less than this USD)
 - `HTX_ACCESS_KEY`, `HTX_SECRET_KEY`, `HTX_ACCOUNT_ID`
 - Optional: `DRY_RUN=1`, `NO_LISTEN=1`, `DEBUG=1`
 

@@ -63,6 +63,28 @@ async function publicGet(path, params = {}) {
   return res.data;
 }
 
+// Get K-line (candlestick) data from public market endpoint.
+// period examples: '60min', '1day'; size up to 2000 depending on API.
+// Returns array of { ts, open, high, low, close, vol } sorted ascending.
+async function getKlines({ symbol, period = '60min', size = 200 }) {
+  const sym = String(symbol || '').toLowerCase();
+  const params = { symbol: sym, period, size };
+  const data = await publicGet('/market/history/kline', params);
+  if (data && data.status === 'ok' && Array.isArray(data.data)) {
+    // API returns reverse chronological (newest first). Normalize to ascending.
+    const arr = [...data.data].reverse().map(r => ({
+      ts: Number(r.id) * 1000,
+      open: Number(r.open),
+      high: Number(r.high),
+      low: Number(r.low),
+      close: Number(r.close),
+      vol: Number(r.vol),
+    }));
+    return arr;
+  }
+  return [];
+}
+
 // List accounts to identify spot and earning/investment accounts
 async function listAccounts() {
   // GET /v1/account/accounts -> [{ id, type, state, subtype? }]
@@ -184,4 +206,5 @@ module.exports = {
   fetchBalancesForAccount,
   fetchAccountBalanceRaw,
   getMatchResults,
+  getKlines,
 };

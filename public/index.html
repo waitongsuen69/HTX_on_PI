@@ -21,6 +21,12 @@
       .meta { display:flex; gap:10px; align-items:baseline; }
       button { background:#1a2330; color:#e6eef7; border:1px solid #2a3a52; padding:6px 10px; border-radius:8px; }
       .warn { color:#ffcf5c; font-size:12px; }
+      /* modal */
+      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index: 20; }
+      .modal .panel { width: min(96vw, 860px); background:#0f1722; border:1px solid #1a2330; border-radius:10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+      .modal header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #1a2330; position: static; background:transparent; }
+      .modal .body { padding: 8px 12px 12px; }
+      .close { background:transparent; border:1px solid #2a3a52; border-radius:8px; color:#c9d7ee; }
     </style>
   </head>
   <body>
@@ -38,6 +44,27 @@
       <button id="refresh">Refresh</button>
     </header>
     <div class="grid" id="grid"></div>
+
+    <!-- K-line Modal -->
+    <div id="chartModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chartTitle">
+      <div class="panel">
+        <header>
+          <div id="chartTitle" style="font-weight:600">Chart</div>
+          <div style="display:flex; gap:8px; align-items:center">
+            <select id="chartPeriod">
+              <option value="60min">1h</option>
+              <option value="15min">15m</option>
+              <option value="4hour">4h</option>
+              <option value="1day">1d</option>
+            </select>
+            <button id="chartClose" class="close">Close</button>
+          </div>
+        </header>
+        <div class="body">
+          <canvas id="chartCanvas" width="800" height="360" style="width:100%; height:auto; background:#0b0f14; border:1px solid #1a2330; border-radius:8px"></canvas>
+        </div>
+      </div>
+    </div>
 
     <script>
       // set active nav

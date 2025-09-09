@@ -79,6 +79,7 @@ app.get('/api/history', (req, res) => {
 
 // New Lots routes (Cost Basis Book)
 app.use('/api/lots', require('./routes/lots'));
+app.use('/api/market', require('./routes/market'));
 
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');

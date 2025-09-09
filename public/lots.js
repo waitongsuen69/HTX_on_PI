@@ -1,3 +1,10 @@
+// set active nav without inline scripts (CSP-safe)
+(() => {
+  const pth = location.pathname;
+  if (pth === '/' || pth === '/index.html') document.getElementById('nav-dashboard').classList.add('active');
+  if (pth.endsWith('/lots.html')) document.getElementById('nav-lots').classList.add('active');
+})();
+
 async function fetchJSON(url, opts) {
   const r = await fetch(url, opts);
   const ct = r.headers.get('content-type') || '';

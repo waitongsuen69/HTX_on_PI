@@ -53,6 +53,13 @@ function renderPositions(ps) {
   }
 }
 
+// set active nav without inline scripts (CSP-safe)
+(() => {
+  const pth = location.pathname;
+  if (pth === '/' || pth === '/index.html') document.getElementById('nav-dashboard').classList.add('active');
+  if (pth.endsWith('/lots.html')) document.getElementById('nav-lots').classList.add('active');
+})();
+
 document.getElementById('refresh').addEventListener('click', load);
 load();
 setInterval(load, 30_000);

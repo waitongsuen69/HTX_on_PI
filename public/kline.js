@@ -79,7 +79,7 @@ function drawCandles(canvas, candles) {
 async function load() {
   const symbol = document.getElementById('symbol').value.trim().toUpperCase();
   const period = document.getElementById('period').value;
-  const count = Number(document.getElementById('count').value || 6000);
+  const count = Number(document.getElementById('count').value || 400);
   const url = `/api/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&count=${count}`;
   const legend = document.getElementById('legend');
   legend.textContent = `Loading ${symbol} ${period} x ${count} ...`;
@@ -99,4 +99,3 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('resize', () => { const c = document.getElementById('chart'); resizeCanvas(c); load(); });
   await load();
 });
-

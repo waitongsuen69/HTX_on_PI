@@ -12,6 +12,7 @@ let currentSymbol = null;
 let tvChart = null;
 let candleSeries = null;
 let resizeObs = null;
+const DEFAULT_VISIBLE_BARS = 400; // default number of candles to show
 
 async function load() {
   try {
@@ -109,8 +110,7 @@ function ensureChart() {
   // Resize observer for container width changes
   if ('ResizeObserver' in window) {
     resizeObs = new ResizeObserver(() => {
-      // autoSize handles it, but ensure redraw
-      tvChart.timeScale().fitContent();
+      // autoSize will resize; keep current visible range (no fitContent).
     });
     resizeObs.observe(chartContainer);
   }
@@ -147,5 +147,16 @@ function setCandles(rows) {
   } catch (e) {
     console.error('setData failed', e);
   }
-  tvChart.timeScale().fitContent();
+  // Show only the last N candles by default
+  try {
+    const n = Math.max(1, DEFAULT_VISIBLE_BARS);
+    if (data.length >= 2) {
+      const fromIdx = Math.max(0, data.length - n);
+      const from = data[fromIdx].time;
+      const to = data[data.length - 1].time;
+      tvChart.timeScale().setVisibleRange({ from, to });
+    }
+  } catch (e) {
+    console.warn('Failed to set visible range', e);
+  }
 }

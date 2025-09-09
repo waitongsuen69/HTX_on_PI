@@ -112,7 +112,8 @@ function ensureTV(symbol, period) {
   tvWidget = new TradingView.widget({
     symbol: symbol.toUpperCase(),
     interval,
-    container: chartContainer,
+    // TradingView expects a container ID string, not a DOM node
+    container: 'chartContainer',
     library_path: '/vendor/charting_library/',
     datafeed: new window.HTXDatafeed('/api'),
     timezone: 'Etc/UTC',

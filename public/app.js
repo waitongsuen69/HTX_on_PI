@@ -85,7 +85,8 @@ async function fetchAndDraw(symbol, period) {
     const r = await fetch(`/api/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&count=6000`, { cache: 'no-cache' });
     const data = await r.json();
     if (!r.ok) throw new Error(data && data.message || 'failed');
-    setCandles((data.candles || []).map(k => ({ ts: k.ts, open: k.open, high: k.high, low: k.low, close: k.close })));
+    const rows = (data.candles || []).map(k => ({ ts: k.ts, open: k.open, high: k.high, low: k.low, close: k.close }));
+    setCandles(rows);
   } catch (e) {
     console.error(e);
   }
@@ -115,9 +116,36 @@ function ensureChart() {
   }
 }
 
+function sanitizeRows(rows) {
+  const out = [];
+  for (const r of rows || []) {
+    const t = Math.floor((r.ts || 0) / 1000);
+    const o = Number(r.open), h = Number(r.high), l = Number(r.low), c = Number(r.close);
+    if (!isFinite(t) || t <= 0) continue;
+    if (![o,h,l,c].every(Number.isFinite)) continue;
+    const hi = Math.max(o, c, h);
+    const lo = Math.min(o, c, l);
+    // fix swapped or degenerate values
+    const high = Math.max(h, hi);
+    const low = Math.min(l, lo);
+    if (high < low) continue;
+    out.push({ time: t, open: o, high, low, close: c });
+  }
+  // ensure sorted by time and unique times
+  out.sort((a,b) => a.time - b.time);
+  const uniq = [];
+  let lastTime = -1;
+  for (const r of out) { if (r.time !== lastTime) { uniq.push(r); lastTime = r.time; } }
+  return uniq;
+}
+
 function setCandles(rows) {
   if (!tvChart || !candleSeries) ensureChart();
-  const data = (rows || []).map(r => ({ time: Math.floor(r.ts / 1000), open: r.open, high: r.high, low: r.low, close: r.close }));
-  candleSeries.setData(data);
+  const data = sanitizeRows(rows);
+  try {
+    candleSeries.setData(data);
+  } catch (e) {
+    console.error('setData failed', e);
+  }
   tvChart.timeScale().fitContent();
 }

@@ -82,10 +82,10 @@ function periodLabel(p){ return p==='60min'?'1h':p==='15min'?'15m':p==='4hour'?'
 async function fetchAndDraw(symbol, period) {
   try {
     chartTitle.textContent = `${symbol} · ${periodLabel(period)}`;
-    const r = await fetch(`/api/market/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&n=200`, { cache: 'no-cache' });
+    const r = await fetch(`/api/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&count=6000`, { cache: 'no-cache' });
     const data = await r.json();
     if (!r.ok) throw new Error(data && data.message || 'failed');
-    setCandles(data.rows || []);
+    setCandles((data.candles || []).map(k => ({ ts: k.ts, open: k.open, high: k.high, low: k.low, close: k.close })));
   } catch (e) {
     console.error(e);
   }

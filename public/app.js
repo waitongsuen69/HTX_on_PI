@@ -5,10 +5,13 @@ const totalEl = document.getElementById('total');
 const dayEl = document.getElementById('day');
 const chartModal = document.getElementById('chartModal');
 const chartTitle = document.getElementById('chartTitle');
-const chartCanvas = document.getElementById('chartCanvas');
+const chartContainer = document.getElementById('chartContainer');
 const chartClose = document.getElementById('chartClose');
 const chartPeriod = document.getElementById('chartPeriod');
 let currentSymbol = null;
+let tvChart = null;
+let candleSeries = null;
+let resizeObs = null;
 
 async function load() {
   try {
@@ -63,6 +66,7 @@ async function openChart(symbol) {
   currentSymbol = symbol;
   chartTitle.textContent = `${symbol} · ${periodLabel(chartPeriod.value)}`;
   chartModal.style.display = 'flex';
+  ensureChart();
   await fetchAndDraw(symbol, chartPeriod.value);
 }
 
@@ -74,62 +78,39 @@ async function fetchAndDraw(symbol, period) {
     const r = await fetch(`/api/market/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&n=200`, { cache: 'no-cache' });
     const data = await r.json();
     if (!r.ok) throw new Error(data && data.message || 'failed');
-    drawCandles(chartCanvas, data.rows || []);
+    setCandles(data.rows || []);
   } catch (e) {
     console.error(e);
   }
 }
 
-function drawCandles(canvas, rows) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width; const H = canvas.height;
-  ctx.clearRect(0,0,W,H);
-  if (!rows || !rows.length) { drawEmpty(ctx, W, H, 'No data'); return; }
-  // Compute min/max
-  let min = Infinity, max = -Infinity;
-  for (const r of rows) { if (isFinite(r.low)) min = Math.min(min, r.low); if (isFinite(r.high)) max = Math.max(max, r.high); }
-  if (!isFinite(min) || !isFinite(max) || min===max) { drawEmpty(ctx, W, H, 'No range'); return; }
-  // Padding top/bottom 2%
-  const pad = (max - min) * 0.02; min -= pad; max += pad;
-  // Layout: leave left margin for scale
-  const LM = 40, RM = 8, TM = 10, BM = 18;
-  const plotW = W - LM - RM, plotH = H - TM - BM;
-  // Map price->y
-  const yAt = (v) => TM + plotH - (v - min) / (max - min) * plotH;
-  // Background grid
-  ctx.fillStyle = '#0b0f14'; ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle = '#182230'; ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i=0;i<=4;i++) { const y = TM + (plotH*i/4); ctx.moveTo(LM, y); ctx.lineTo(W-RM, y); }
-  ctx.stroke();
-  // Price scale
-  ctx.fillStyle = '#8aa0b6'; ctx.font = '12px system-ui'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  for (let i=0;i<=4;i++) { const v = min + (max-min)*i/4; const y = TM + plotH - (plotH*i/4); ctx.fillText(v.toFixed(6).replace(/0+$/,'').replace(/\.$/,''), LM-6, y); }
-  // Candles
-  const n = rows.length; const cw = Math.max(2, Math.floor(plotW / n * 0.7));
-  const gap = Math.max(1, Math.floor(plotW / n - cw));
-  let x = LM + Math.max(0, plotW - (cw+gap)*n);
-  for (const r of rows) {
-    const o = r.open, c = r.close, h = r.high, l = r.low;
-    const up = c >= o;
-    const color = up ? '#16c784' : '#ea3943';
-    const yO = yAt(o), yC = yAt(c), yH = yAt(h), yL = yAt(l);
-    const bodyTop = Math.min(yO, yC), bodyBot = Math.max(yO, yC);
-    ctx.strokeStyle = color; ctx.fillStyle = color;
-    // Wick
-    ctx.beginPath(); ctx.moveTo(x + cw/2, yH); ctx.lineTo(x + cw/2, yL); ctx.stroke();
-    // Body
-    const bodyH = Math.max(1, bodyBot - bodyTop);
-    if (up) { ctx.strokeRect(x, bodyTop, cw, bodyH); }
-    else { ctx.fillRect(x, bodyTop, cw, bodyH); }
-    x += cw + gap;
+function ensureChart() {
+  if (tvChart) return;
+  const opt = {
+    layout: { background: { type: 'solid', color: '#0b0f14' }, textColor: '#8aa0b6' },
+    crosshair: { mode: 0 },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+    grid: { vertLines: { color: '#182230' }, horzLines: { color: '#182230' } },
+    autoSize: true,
+  };
+  tvChart = window.LightweightCharts.createChart(chartContainer, opt);
+  candleSeries = tvChart.addCandlestickSeries({
+    upColor: '#16c784', downColor: '#ea3943', borderUpColor: '#16c784', borderDownColor: '#ea3943', wickUpColor: '#16c784', wickDownColor: '#ea3943',
+  });
+  // Resize observer for container width changes
+  if ('ResizeObserver' in window) {
+    resizeObs = new ResizeObserver(() => {
+      // autoSize handles it, but ensure redraw
+      tvChart.timeScale().fitContent();
+    });
+    resizeObs.observe(chartContainer);
   }
-  // Time axis labels (start and end)
-  ctx.fillStyle = '#8aa0b6'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  const first = new Date(rows[0].ts), last = new Date(rows[rows.length-1].ts);
-  ctx.fillText(shortTime(first), LM + 40, H - BM + 2);
-  ctx.fillText(shortTime(last), W - RM - 40, H - BM + 2);
 }
 
-function drawEmpty(ctx, W, H, msg){ ctx.fillStyle='#0b0f14'; ctx.fillRect(0,0,W,H); ctx.fillStyle='#8aa0b6'; ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(msg, W/2, H/2); }
-function shortTime(d){ return d.toLocaleString(undefined, { hour:'2-digit', minute:'2-digit', month:'2-digit', day:'2-digit' }); }
+function setCandles(rows) {
+  if (!tvChart || !candleSeries) ensureChart();
+  const data = (rows || []).map(r => ({ time: Math.floor(r.ts / 1000), open: r.open, high: r.high, low: r.low, close: r.close }));
+  candleSeries.setData(data);
+  tvChart.timeScale().fitContent();
+}

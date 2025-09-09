@@ -30,5 +30,5 @@ Thumbs.db
 # Runtime data (generated at runtime)
 data/state.json
 data/.tmp-*
-data/
+data
 package-lock.json

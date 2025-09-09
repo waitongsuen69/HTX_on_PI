@@ -12,7 +12,10 @@ let currentSymbol = null;
 let tvChart = null;
 let candleSeries = null;
 let resizeObs = null;
-const DEFAULT_VISIBLE_BARS = 150; // default number of candles to show
+// TradingView Charting Library widget (optional, if available)
+let tvWidget = null;
+let tvReady = false;
+const DEFAULT_VISIBLE_BARS = 400; // default number of candles to show
 
 async function load() {
   try {
@@ -66,19 +69,72 @@ load();
 setInterval(load, 30_000);
 
 // --- Simple K-line modal and renderer ---
-chartClose.addEventListener('click', () => { chartModal.style.display = 'none'; });
+chartClose.addEventListener('click', () => {
+  chartModal.style.display = 'none';
+  // Clean up TV widget if used
+  if (tvWidget && tvWidget.remove) {
+    try { tvWidget.remove(); } catch (e) {}
+  }
+  tvWidget = null;
+  tvReady = false;
+});
 chartModal.addEventListener('click', (e) => { if (e.target === chartModal) chartModal.style.display = 'none'; });
-chartPeriod.addEventListener('change', () => { if (currentSymbol) fetchAndDraw(currentSymbol, chartPeriod.value); });
+chartPeriod.addEventListener('change', () => {
+  if (!currentSymbol) return;
+  if (canUseTV() && tvWidget) {
+    setTVResolution(chartPeriod.value);
+  } else {
+    fetchAndDraw(currentSymbol, chartPeriod.value);
+  }
+});
 
 async function openChart(symbol) {
   currentSymbol = symbol;
   chartTitle.textContent = `${symbol} · ${periodLabel(chartPeriod.value)}`;
   chartModal.style.display = 'flex';
-  ensureChart();
-  await fetchAndDraw(symbol, chartPeriod.value);
+  if (canUseTV()) {
+    ensureTV(symbol, chartPeriod.value);
+  } else {
+    ensureChart();
+    await fetchAndDraw(symbol, chartPeriod.value);
+  }
 }
 
 function periodLabel(p){ return p==='60min'?'1h':p==='15min'?'15m':p==='4hour'?'4h':p==='1day'?'1d':p; }
+
+function periodToTVRes(p){ return p==='60min'?'60':p==='15min'?'15':p==='4hour'?'240':p==='1day'?'D':'60'; }
+function canUseTV(){ return !!(window.TradingView && window.TradingView.widget && window.HTXDatafeed); }
+
+function ensureTV(symbol, period) {
+  // Clear container to avoid overlaying charts
+  chartContainer.innerHTML = '';
+  const interval = periodToTVRes(period);
+  tvWidget = new TradingView.widget({
+    symbol: symbol.toUpperCase(),
+    interval,
+    container: chartContainer,
+    library_path: '/vendor/charting_library/',
+    datafeed: new window.HTXDatafeed('/api'),
+    timezone: 'Etc/UTC',
+    autosize: true,
+    theme: 'dark',
+    locale: 'en',
+    enabled_features: ['left_toolbar', 'keep_left_toolbar_visible_on_small_screens'],
+    disabled_features: ['use_localstorage_for_settings'],
+  });
+  tvWidget.onChartReady(() => { tvReady = true; });
+}
+
+function setTVResolution(period) {
+  if (!tvWidget) return;
+  const res = periodToTVRes(period);
+  try {
+    tvWidget.chart().setResolution(res, () => {});
+    chartTitle.textContent = `${currentSymbol} · ${periodLabel(period)}`;
+  } catch (e) {
+    console.warn('Failed to set TV resolution', e);
+  }
+}
 
 async function fetchAndDraw(symbol, period) {
   try {

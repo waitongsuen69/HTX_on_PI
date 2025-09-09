@@ -7,6 +7,9 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b0f14; color: #e6eef7; }
+      .nav { display:flex; gap:10px; align-items:center; padding:10px 16px; background:#0d141d; border-bottom:1px solid #1a2330; position:sticky; top:0; z-index:10; }
+      .nav a { color:#c9d7ee; text-decoration:none; padding:6px 10px; border-radius:8px; border:1px solid transparent; }
+      .nav a.active { background:#13202e; border-color:#24354a; color:#fff; }
       header { padding: 12px 16px; position: sticky; top: 0; background: rgba(11,15,20,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid #1a2330; display:flex; align-items:center; gap:12px; }
       h1 { font-size: 18px; margin: 0; }
       .totals { display: flex; gap: 16px; font-size: 14px; }
@@ -21,6 +24,10 @@
     </style>
   </head>
   <body>
+    <div class="nav">
+      <a id="nav-dashboard" href="/">Dashboard</a>
+      <a id="nav-lots" href="/lots.html">Lots</a>
+    </div>
     <header>
       <h1>HTX Pi Monitor</h1>
       <div class="totals">
@@ -32,6 +39,12 @@
     </header>
     <div class="grid" id="grid"></div>
 
+    <script>
+      // set active nav
+      const p = location.pathname;
+      if (p === '/' || p === '/index.html') document.getElementById('nav-dashboard').classList.add('active');
+      if (p.endsWith('/lots.html')) document.getElementById('nav-lots').classList.add('active');
+    </script>
     <script src="/app.js" defer></script>
   </body>
   </html>

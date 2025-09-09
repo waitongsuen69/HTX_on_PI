@@ -22,6 +22,7 @@ app.use(helmet({
 }));
 app.use(compression());
 app.use(morgan('tiny'));
+app.use(express.json());
 
 // Static UI
 const publicDir = path.join(process.cwd(), 'public');
@@ -75,6 +76,9 @@ app.get('/api/history', (req, res) => {
   const hist = Array.isArray(state.history) ? state.history.slice(-n) : [];
   res.json({ history: hist });
 });
+
+// New Lots routes (Cost Basis Book)
+app.use('/api/lots', require('./routes/lots'));
 
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');

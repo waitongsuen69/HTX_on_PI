@@ -32,6 +32,7 @@ APIs
 - `GET /api/health`
 - `GET /api/snapshot`
 - `GET /api/history?n=50`
+ - `GET /api/lots` (cost basis lots)
 
 Scripts
 -------
@@ -64,3 +65,17 @@ Notes
 - Sequential lot IDs are maintained in `meta.last_id`.
 - P/L% is computed against remaining lots average cost ignoring lots with unknown cost.
 - Prices and totals are computed in USD only for now.
+
+Cost Basis (Lots) UI & CSV
+--------------------------
+
+- UI: open `/lots.html` for a simple lot book manager (create/edit/delete, import/export, summaries).
+- Storage backend: `STORAGE_BACKEND=CSV|JSON` (default `JSON`). Data lives under `./data`.
+- CSV header: `id,date,asset,action,qty,unit_cost_usd,note` (see `docs/CSV_FORMAT.md`).
+- Actions: `buy|sell|deposit|withdraw`. Sign rules: buy/deposit positive; sell/withdraw negative.
+- Matching: LOFO (lowest unit cost out first). Deposits without cost are treated as highest cost for matching.
+- Import examples:
+  - `curl -F file=@cost_basis_lots.csv http://localhost:8080/api/lots/import`
+  - `curl -H 'content-type: application/json' -d '{"lots":[...]}" http://localhost:8080/api/lots/import`
+- Export examples: `/api/lots/export?format=csv` or `?format=json`
+- Edits/deletes are blocked once a lot is (partially) consumed by matching.

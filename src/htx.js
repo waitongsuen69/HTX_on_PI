@@ -166,6 +166,15 @@ async function getPrices(symbols) {
   return out; // { BTC: { price, day_pct }, ... }
 }
 
+// Fetch match results (fills) within a time window for a given symbol.
+// Window constraint: at most 48h per request; sliding up to last 120 days.
+// Huobi expects symbol like 'btcusdt'; times in milliseconds since epoch.
+async function getMatchResults({ symbol, startTime, endTime, direct = 'prev', size = 500 }) {
+  const params = { symbol, 'start-time': startTime, 'end-time': endTime, direct, size };
+  const data = await privateGet('/v1/order/matchresults', params);
+  return Array.isArray(data) ? data : [];
+}
+
 module.exports = {
   getBalances,
   getPrices,
@@ -174,4 +183,5 @@ module.exports = {
   // debug exports
   fetchBalancesForAccount,
   fetchAccountBalanceRaw,
+  getMatchResults,
 };

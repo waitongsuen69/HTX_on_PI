@@ -4,7 +4,7 @@ const Papa = require('papaparse');
 const { createLotsStorage } = require('../storage/lotsStorage');
 const { normalizeAndSort, validateLots, reconcileLOFO } = require('../services/lotEngine');
 const { loadState } = require('../state');
-const { getMatchResults } = require('../htx');
+const { getMatchResults, getBalances } = require('../htx');
 
 const upload = multer();
 const router = express.Router();
@@ -258,10 +258,21 @@ async function syncTradesCore({ days = 120, sseEmit }) {
   for (const arr of Object.values(st.byAsset)) {
     for (const l of arr) if (l.note && l.note.includes('trade#')) seenNotes.add(l.note);
   }
-  const latest = loadState();
-  const last = latest.history && latest.history[latest.history.length - 1];
-  const assets = last && last.positions ? last.positions.map(p => String(p.symbol).toUpperCase()) : [];
-  const symbols = assets.filter(Boolean);
+  // Build symbol list from live balances instead of snapshot positions
+  let symbols = [];
+  try {
+    const bal = await getBalances(); // { ASSET: { free } }
+    const assets = Object.keys(bal || {}).map(s => String(s).toUpperCase());
+    // USDT-quoted only: skip USDT itself
+    symbols = assets.filter(a => a && a !== 'USDT');
+  } catch (e) {
+    warnings.push(`balances-error ${e.message}`);
+    // Fallback to last snapshot if balances fail
+    const latest = loadState();
+    const last = latest.history && latest.history[latest.history.length - 1];
+    const assets = last && last.positions ? last.positions.map(p => String(p.symbol).toUpperCase()) : [];
+    symbols = assets.filter(a => a && a !== 'USDT');
+  }
 
   // Current inventory by asset from reconciliation
   const invStart = {};

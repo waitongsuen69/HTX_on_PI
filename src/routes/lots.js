@@ -290,7 +290,8 @@ async function syncTradesCore({ days = 120, sseEmit }) {
     let inv = Number(invStart[asset] || 0);
     for (let end = now; end > from; end -= windowMs) {
       const start = Math.max(from, end - windowMs + 1);
-      emitProgress(`Fetching ${sym} ${new Date(start).toISOString()}..${new Date(end).toISOString()}`);
+      // Show the exact REST call window for clarity during progress updates
+      emitProgress(`GET /v1/order/matchresults?symbol=${sym}&start-time=${start}&end-time=${end} [${new Date(start).toISOString()}..${new Date(end).toISOString()}]`);
       let rows = [];
       try {
         // Ensure window does not exceed 48h per HTX constraints
@@ -302,6 +303,14 @@ async function syncTradesCore({ days = 120, sseEmit }) {
         rows = await getMatchResults({ symbol: sym, startTime: start, endTime: end });
       } catch (e) {
         const errMsg = `Error ${sym}: ${e.message} (start=${start}, end=${end}, startISO=${new Date(start).toISOString()}, endISO=${new Date(end).toISOString()})`;
+        // If HTX reports invalid start time, we've likely crossed the market's listing date.
+        // Stop scanning further back for this symbol to avoid noisy warnings.
+        if (/invalid-start-time|invalid\.start\.time/i.test(String(e && e.message || ''))) {
+          const note = `stop ${sym}: reached earliest available history before listing (${new Date(start).toISOString()})`;
+          warnings.push(note);
+          step++; emitProgress(note);
+          break; // exit the window loop for this symbol
+        }
         warnings.push(errMsg);
         step++; emitProgress(errMsg);
         continue;
@@ -331,7 +340,7 @@ async function syncTradesCore({ days = 120, sseEmit }) {
         inv += (side === 'buy') ? amount : -amount;
         created++;
       }
-      step++; emitProgress(`Processed ${sym} window, created=${created}, skipped=${skipped}`);
+      step++; emitProgress(`Processed ${sym} ${new Date(start).toISOString()}..${new Date(end).toISOString()} (created=${created}, skipped=${skipped})`);
     }
   }
 

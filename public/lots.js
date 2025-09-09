@@ -65,7 +65,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btnSyncTrades');
     const prog = document.getElementById('syncProgress');
     const logEl = document.getElementById('syncLog');
-    btn.disabled = true; prog.value = 0; logEl.textContent = 'Starting...';
+    const iconEl = document.getElementById('syncIcon');
+    const feedEl = document.getElementById('syncFeed');
+    const feed = [];
+    function appendFeed(msg) {
+      const ts = new Date().toLocaleTimeString();
+      feed.push(`[${ts}] ${msg}`);
+      // keep last 50
+      while (feed.length > 50) feed.shift();
+      feedEl.innerHTML = feed.slice(-10).map(line => `<div>${escapeHtml(line)}</div>`).join('');
+      feedEl.scrollTop = feedEl.scrollHeight;
+    }
+    function escapeHtml(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+    btn.disabled = true; prog.value = 0; logEl.textContent = 'Starting...'; feedEl.innerHTML = '';
+    iconEl.className = 'spinner'; iconEl.textContent = '';
     let done = false;
     try {
       const es = new EventSource('/api/lots/sync-trades-stream?days=120');
@@ -73,7 +86,7 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
           const data = JSON.parse(ev.data);
           prog.value = data.percent || 0;
-          if (data.message) logEl.textContent = data.message;
+          if (data.message) { logEl.textContent = data.message; appendFeed(data.message); }
         } catch (_) {}
       });
       es.addEventListener('done', (ev) => {
@@ -81,6 +94,13 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
           const data = JSON.parse(ev.data);
           toast(`Synced trades. New lots: ${data.created || 0}, skipped: ${data.skipped || 0}`);
+          // Show success/failure icon based on saved flag
+          if (data.saved === false) {
+            iconEl.className = 'icon-err'; iconEl.textContent = '✖';
+          } else {
+            iconEl.className = 'icon-ok'; iconEl.textContent = '✓';
+          }
+          appendFeed('Done');
         } catch (_) { toast('Sync finished'); }
         es.close();
         btn.disabled = false;
@@ -89,6 +109,8 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       es.addEventListener('error', (ev) => {
         try { const data = JSON.parse(ev.data); toast('Sync error: ' + data.message, false); } catch (_) { toast('Sync error', false); }
+        iconEl.className = 'icon-err'; iconEl.textContent = '✖';
+        appendFeed('Error occurred');
         es.close(); btn.disabled = false;
       });
       // Fallback timeout safety
@@ -97,12 +119,17 @@ window.addEventListener('DOMContentLoaded', () => {
         try {
           const r = await fetchJSON('/api/lots/sync-trades?days=120', { method: 'POST' });
           toast(`Synced trades. New lots: ${r.created || 0}, skipped: ${r.skipped || 0}`);
+          if (r.saved === false) { iconEl.className = 'icon-err'; iconEl.textContent = '✖'; }
+          else { iconEl.className = 'icon-ok'; iconEl.textContent = '✓'; }
+          appendFeed('Done (fallback)');
           loadLots();
         } catch (e) { toast(e.message, false); }
         btn.disabled = false;
       }, 30000);
     } catch (e) {
       btn.disabled = false; toast(e.message, false);
+      iconEl.className = 'icon-err'; iconEl.textContent = '✖';
+      appendFeed('Error: ' + e.message);
     }
   };
   const fi = document.getElementById('fileInput');

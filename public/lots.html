@@ -19,6 +19,11 @@
       .row { display:flex; gap:8px; flex-wrap: wrap; }
       .card { background:#151515; border:1px solid #2a2a2a; border-radius:8px; padding:10px; }
       .toast { position: fixed; bottom: 12px; right: 12px; background:#222; color:#eee; border:1px solid #444; padding:8px 12px; border-radius:6px; display:none; }
+      /* Sync status icons */
+      .spinner { display:inline-block; width:14px; height:14px; border:2px solid #3a3a3a; border-top-color:#0aaef0; border-radius:50%; animation: spin 0.9s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .icon-ok { color:#16c784; font-weight:700; }
+      .icon-err { color:#ea3943; font-weight:700; }
     </style>
     <script defer src="/lots.js"></script>
   </head>
@@ -42,10 +47,12 @@
       </div>
     </header>
     <div class="card" style="margin-bottom:8px">
-      <div class="row" style="align-items:center">
+      <div class="row" style="align-items:center; gap:8px">
+        <span id="syncIcon" aria-label="status" title="status"></span>
         <progress id="syncProgress" value="0" max="100" style="width:240px"></progress>
-        <span id="syncLog" style="font-size:12px; opacity:0.8"></span>
+        <span id="syncLog" style="font-size:12px; opacity:0.9"></span>
       </div>
+      <div id="syncFeed" style="margin-top:6px; max-height:120px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:12px; opacity:0.8; border-top:1px solid #2a2a2a; padding-top:6px"></div>
     </div>
 
     <div class="row">

@@ -31,3 +31,4 @@ Thumbs.db
 data/state.json
 data/.tmp-*
 
+package-lock.json

@@ -12,7 +12,7 @@ let currentSymbol = null;
 let tvChart = null;
 let candleSeries = null;
 let resizeObs = null;
-const DEFAULT_VISIBLE_BARS = 400; // default number of candles to show
+const DEFAULT_VISIBLE_BARS = 150; // default number of candles to show
 
 async function load() {
   try {

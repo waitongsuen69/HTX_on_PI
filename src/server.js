@@ -79,6 +79,8 @@ app.get('/api/history', (req, res) => {
 
 // New Lots routes (Cost Basis Book)
 app.use('/api/lots', require('./routes/lots'));
+// Kline aggregator route
+app.use('/api/kline', require('./routes/kline'));
 app.use('/api/market', require('./routes/market'));
 
 if (NO_LISTEN) {

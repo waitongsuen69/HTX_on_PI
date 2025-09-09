@@ -85,6 +85,39 @@ async function getKlines({ symbol, period = '60min', size = 200 }) {
   return [];
 }
 
+// Try to page klines backwards up to `count` records (max ~2000 per call).
+// Uses 'to' cursor if supported by API by setting it to the oldest id-1 from the previous page.
+async function getKlinesPaged({ symbol, period = '60min', count = 6000, pageSize = 2000 }) {
+  const collected = [];
+  let toCursor = undefined;
+  while (collected.length < count) {
+    const size = Math.min(pageSize, count - collected.length);
+    const params = { symbol: String(symbol || '').toLowerCase(), period, size };
+    if (toCursor) params.to = toCursor; // best-effort; ignored if unsupported
+    let data;
+    try {
+      data = await publicGet('/market/history/kline', params);
+    } catch (e) {
+      if (DEBUG) console.warn('klines request failed', e.message);
+      break;
+    }
+    if (!(data && data.status === 'ok' && Array.isArray(data.data) && data.data.length)) break;
+    // Oldest id from this page
+    const page = data.data;
+    page.sort((a,b) => a.id - b.id); // ensure ascending
+    const mapped = page.map(r => ({ ts: Number(r.id) * 1000, open: Number(r.open), high: Number(r.high), low: Number(r.low), close: Number(r.close), vol: Number(r.vol) }));
+    collected.push(...mapped);
+    const oldest = page[0];
+    const oldestId = oldest && oldest.id ? Number(oldest.id) : null;
+    if (!oldestId) break;
+    toCursor = oldestId - 1; // move window earlier
+    if (page.length < size) break; // no more data
+  }
+  // Trim and ensure ascending order
+  collected.sort((a,b) => a.ts - b.ts);
+  return collected.slice(-count);
+}
+
 // List accounts to identify spot and earning/investment accounts
 async function listAccounts() {
   // GET /v1/account/accounts -> [{ id, type, state, subtype? }]
@@ -200,6 +233,7 @@ async function getMatchResults({ symbol, startTime, endTime, direct = 'prev', si
 module.exports = {
   getBalances,
   getPrices,
+  publicGet,
   // exposed for debugging/account discovery
   listAccounts,
   // debug exports
@@ -207,4 +241,5 @@ module.exports = {
   fetchAccountBalanceRaw,
   getMatchResults,
   getKlines,
+  getKlinesPaged,
 };

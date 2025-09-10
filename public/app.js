@@ -9,13 +9,9 @@ const chartContainer = document.getElementById('chartContainer');
 const chartClose = document.getElementById('chartClose');
 const chartPeriod = document.getElementById('chartPeriod');
 let currentSymbol = null;
-let tvChart = null;
-let candleSeries = null;
-let resizeObs = null;
-// TradingView Charting Library widget (optional, if available)
+// TradingView Charting Library widget
 let tvWidget = null;
 let tvReady = false;
-const DEFAULT_VISIBLE_BARS = 400; // default number of candles to show
 
 async function load() {
   try {
@@ -84,7 +80,8 @@ chartPeriod.addEventListener('change', () => {
   if (canUseTV() && tvWidget) {
     setTVResolution(chartPeriod.value);
   } else {
-    fetchAndDraw(currentSymbol, chartPeriod.value);
+    // If TV not available yet, reinitialize
+    ensureTV(currentSymbol, chartPeriod.value);
   }
 });
 
@@ -92,12 +89,7 @@ async function openChart(symbol) {
   currentSymbol = symbol;
   chartTitle.textContent = `${symbol} · ${periodLabel(chartPeriod.value)}`;
   chartModal.style.display = 'flex';
-  if (canUseTV()) {
-    ensureTV(symbol, chartPeriod.value);
-  } else {
-    ensureChart();
-    await fetchAndDraw(symbol, chartPeriod.value);
-  }
+  ensureTV(symbol, chartPeriod.value);
 }
 
 function periodLabel(p){ return p==='60min'?'1h':p==='15min'?'15m':p==='4hour'?'4h':p==='1day'?'1d':p; }
@@ -137,83 +129,4 @@ function setTVResolution(period) {
   }
 }
 
-async function fetchAndDraw(symbol, period) {
-  try {
-    chartTitle.textContent = `${symbol} · ${periodLabel(period)}`;
-    const r = await fetch(`/api/kline?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}&count=6000`, { cache: 'no-cache' });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data && data.message || 'failed');
-    const rows = (data.candles || []).map(k => ({ ts: k.ts, open: k.open, high: k.high, low: k.low, close: k.close }));
-    setCandles(rows);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function ensureChart() {
-  if (tvChart) return;
-  const opt = {
-    layout: { background: { type: 'solid', color: '#0b0f14' }, textColor: '#8aa0b6' },
-    crosshair: { mode: 0 },
-    rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
-    grid: { vertLines: { color: '#182230' }, horzLines: { color: '#182230' } },
-    autoSize: true,
-  };
-  tvChart = window.LightweightCharts.createChart(chartContainer, opt);
-  candleSeries = tvChart.addCandlestickSeries({
-    upColor: '#16c784', downColor: '#ea3943', borderUpColor: '#16c784', borderDownColor: '#ea3943', wickUpColor: '#16c784', wickDownColor: '#ea3943',
-  });
-  // Resize observer for container width changes
-  if ('ResizeObserver' in window) {
-    resizeObs = new ResizeObserver(() => {
-      // autoSize will resize; keep current visible range (no fitContent).
-    });
-    resizeObs.observe(chartContainer);
-  }
-}
-
-function sanitizeRows(rows) {
-  const out = [];
-  for (const r of rows || []) {
-    const t = Math.floor((r.ts || 0) / 1000);
-    const o = Number(r.open), h = Number(r.high), l = Number(r.low), c = Number(r.close);
-    if (!isFinite(t) || t <= 0) continue;
-    if (![o,h,l,c].every(Number.isFinite)) continue;
-    const hi = Math.max(o, c, h);
-    const lo = Math.min(o, c, l);
-    // fix swapped or degenerate values
-    const high = Math.max(h, hi);
-    const low = Math.min(l, lo);
-    if (high < low) continue;
-    out.push({ time: t, open: o, high, low, close: c });
-  }
-  // ensure sorted by time and unique times
-  out.sort((a,b) => a.time - b.time);
-  const uniq = [];
-  let lastTime = -1;
-  for (const r of out) { if (r.time !== lastTime) { uniq.push(r); lastTime = r.time; } }
-  return uniq;
-}
-
-function setCandles(rows) {
-  if (!tvChart || !candleSeries) ensureChart();
-  const data = sanitizeRows(rows);
-  try {
-    candleSeries.setData(data);
-  } catch (e) {
-    console.error('setData failed', e);
-  }
-  // Show only the last N candles by default
-  try {
-    const n = Math.max(1, DEFAULT_VISIBLE_BARS);
-    if (data.length >= 2) {
-      const fromIdx = Math.max(0, data.length - n);
-      const from = data[fromIdx].time;
-      const to = data[data.length - 1].time;
-      tvChart.timeScale().setVisibleRange({ from, to });
-    }
-  } catch (e) {
-    console.warn('Failed to set visible range', e);
-  }
-}
+// Lightweight chart path removed for simplicity; TV is required for drawings

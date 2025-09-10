@@ -50,15 +50,9 @@ function renderPositions(ps) {
         <div class="${pnlCls}">P/L ${pnl}</div>
         ${p.unreconciled ? '<div class="warn">unreconciled</div>' : ''}
       </div>
-      <div class="actions" style="margin-top:6px; display:flex; gap:10px;">
-        <a class="action" href="/kline.html?symbol=${encodeURIComponent(p.symbol)}" target="_blank" rel="noopener">K Line</a>
-        <a class="action" href="/tv.html?symbol=${encodeURIComponent(p.symbol)}&interval=60" target="_blank" rel="noopener">TV Chart</a>
-      </div>
       ${warn}
     `;
     card.addEventListener('click', () => openChart(p.symbol));
-    // Prevent card click when action links are clicked
-    card.querySelectorAll('a.action').forEach(a => a.addEventListener('click', (e) => e.stopPropagation()));
     grid.appendChild(card);
   }
 }

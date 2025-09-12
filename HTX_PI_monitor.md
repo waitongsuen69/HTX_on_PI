@@ -14,7 +14,6 @@ Pi kiosk hint
 -------------
 
 ```
-chromium-browser --kiosk --incognito http://localhost:8080
+chromium-browser --kiosk --incognito http://localhost:$PORT
 xset s off; xset -dpms; xset s noblank
 ```
-

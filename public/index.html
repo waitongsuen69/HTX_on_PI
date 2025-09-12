@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>HTX Pi Monitor</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b0f14; color: #e6eef7; }
@@ -112,5 +114,6 @@
     <!-- TradingView Lightweight Charts (Apache-2.0) served locally to satisfy CSP -->
     <script src="/vendor/lightweight-charts.standalone.production.js" defer></script>
     <script src="/app.js" defer></script>
+    <script src="/sw-register.js" defer></script>
   </body>
   </html>

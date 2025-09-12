@@ -9,7 +9,15 @@ Quickstart
 - `cp .env.example .env` and fill HTX keys
 - `npm i`
 - `npm start` (or `node src/server.js`)
-- Open `http://<pi-ip>:8080`
+- Open `http://<pi-ip>:<PORT>` (default 8080)
+
+PWA (Installable App)
+---------------------
+
+- Install from Chrome/Edge: look for “Install app” in the address bar.
+- Works with any `PORT`; manifest served at `/manifest.json`.
+- Service worker: `/service-worker.js` (dev: network-first, no cache).
+- Icons: `public/icon-192.png` and `public/icon-512.png` (replace placeholders for branding).
 
 Environment
 -----------
@@ -54,7 +62,7 @@ Kiosk (Pi)
 ----------
 
 ```
-chromium-browser --kiosk --incognito http://localhost:8080
+chromium-browser --kiosk --incognito http://localhost:$PORT
 xset s off; xset -dpms; xset s noblank
 ```
 
@@ -75,7 +83,7 @@ Cost Basis (Lots) UI & CSV
 - Actions: `buy|sell|deposit|withdraw`. Sign rules: buy/deposit positive; sell/withdraw negative.
 - Matching: LOFO (lowest unit cost out first). Deposits without cost are treated as highest cost for matching.
 - Import examples:
-  - `curl -F file=@cost_basis_lots.csv http://localhost:8080/api/lots/import`
-  - `curl -H 'content-type: application/json' -d '{"lots":[...]}" http://localhost:8080/api/lots/import`
+  - `curl -F file=@cost_basis_lots.csv http://localhost:$PORT/api/lots/import`
+  - `curl -H 'content-type: application/json' -d '{"lots":[...]}" http://localhost:$PORT/api/lots/import`
 - Export examples: `/api/lots/export?format=csv` or `?format=json`
 - Edits/deletes are blocked once a lot is (partially) consumed by matching.

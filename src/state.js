@@ -4,7 +4,8 @@ const path = require('path');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 
-const MAX_HISTORY = 50; // per spec
+// Allow enough room for ~1 snapshot/day backfill plus live samples
+const MAX_HISTORY = 400;
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -63,4 +64,3 @@ module.exports = {
   saveStateAtomic,
   writeJsonAtomic,
 };
-

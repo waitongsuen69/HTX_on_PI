@@ -7,6 +7,10 @@ const morgan = require('morgan');
 
 const { loadState, addSnapshot, saveStateAtomic } = require('./state');
 const { createScheduler } = require('./scheduler');
+const { backfillHistoryIfNeeded, captureCurrentSnapshot } = require('./backfill');
+const { computeChangesFromKlines } = require('./services/marketChange');
+
+// moved kline change computation to services/marketChange (keep server thin)
 
 const PORT = Number(process.env.PORT || 8080);
 const BIND_ADDR = process.env.BIND_ADDR || '0.0.0.0';
@@ -55,6 +59,15 @@ if (DRY_RUN) {
   } catch (e) {
     console.warn('DRY_RUN seeding failed:', e.message);
   }
+} else {
+  // On boot: ensure history exists (backfill up to 180d if empty) and capture a current snapshot
+  (async () => {
+    try {
+      const days = Number(process.env.BACKFILL_DAYS || 180);
+      await backfillHistoryIfNeeded({ days, refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE, logger: console });
+      await captureCurrentSnapshot({ refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE, logger: console });
+    } catch (e) { console.warn('boot init error:', e.message); }
+  })();
 }
 
 app.get('/api/health', (req, res) => {
@@ -63,11 +76,53 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, now: Date.now(), lastSnapshotAt: last ? last.time * 1000 : null });
 });
 
-app.get('/api/snapshot', (req, res) => {
+app.get('/api/snapshot', async (req, res) => {
   const state = loadState();
-  const last = state.history && state.history[state.history.length - 1];
+  const last = Array.isArray(state.history) ? state.history[state.history.length - 1] : null;
   if (!last) return res.status(404).json({ error: 'no_snapshot' });
-  res.json(last);
+
+  try {
+    const symbols = (last.positions || []).map(p => p.symbol).filter(Boolean);
+    const changes = {};
+    for (const base of symbols) {
+      changes[base] = await computeChangesFromKlines(base);
+    }
+    // Fallback using history prices if any change is missing
+    const hist = Array.isArray(state.history) ? state.history : [];
+    const nowTs = last.time * 1000;
+    const t7d = nowTs - 7 * 24 * 60 * 60 * 1000;
+    const t30d = nowTs - 30 * 24 * 60 * 60 * 1000;
+    function findRefPrice(sym, targetMs) {
+      for (let i = hist.length - 1; i >= 0; i--) {
+        const snap = hist[i];
+        if (!snap || !Array.isArray(snap.positions)) continue;
+        const tsMs = (snap.time || 0) * 1000;
+        if (tsMs <= targetMs) {
+          const pos = snap.positions.find(pp => pp.symbol === sym && pp.price != null);
+          if (pos && pos.price > 0) return Number(pos.price);
+        }
+      }
+      return null;
+    }
+    const enriched = JSON.parse(JSON.stringify(last));
+    enriched.positions = (last.positions || []).map(p => {
+      const { pnl_pct, unreconciled, day_pct, ...rest } = p;
+      let { change_1d_pct, change_7d_pct, change_30d_pct } = changes[p.symbol] || {};
+      if (change_1d_pct == null && day_pct != null) change_1d_pct = day_pct;
+      if (change_7d_pct == null) {
+        const ref = findRefPrice(p.symbol, t7d);
+        if (ref && p.price > 0) change_7d_pct = (p.price / ref - 1) * 100;
+      }
+      if (change_30d_pct == null) {
+        const ref = findRefPrice(p.symbol, t30d);
+        if (ref && p.price > 0) change_30d_pct = (p.price / ref - 1) * 100;
+      }
+      return { ...rest, change_1d_pct, change_7d_pct, change_30d_pct };
+    });
+    res.json(enriched);
+  } catch (e) {
+    res.json(last);
+  }
 });
 
 app.get('/api/history', (req, res) => {

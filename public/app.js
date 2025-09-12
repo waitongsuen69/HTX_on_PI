@@ -33,20 +33,21 @@ function renderPositions(ps) {
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.symbol = p.symbol;
-    const day = p.day_pct==null ? '—' : fmtPct(p.day_pct);
-    const pnl = p.pnl_pct==null ? '—' : fmtPct(p.pnl_pct);
-    const dayCls = p.day_pct==null ? '' : (p.day_pct>=0 ? 'green' : 'red');
-    const pnlCls = p.pnl_pct==null ? '' : (p.pnl_pct>=0 ? 'green' : 'red');
-    const warn = p.pnl_pct==null ? '<div class="warn">cost basis missing</div>' : '';
+    const c1d = (p.change_1d_pct!=null ? p.change_1d_pct : (p.day_pct!=null ? p.day_pct : null));
+    const day = c1d==null ? '—' : fmtPct(c1d);
+    const wk = p.change_7d_pct==null ? '—' : fmtPct(p.change_7d_pct);
+    const mo = p.change_30d_pct==null ? '—' : fmtPct(p.change_30d_pct);
+    const dayCls = c1d==null ? '' : (c1d>=0 ? 'green' : 'red');
+    const wkCls = p.change_7d_pct==null ? '' : (p.change_7d_pct>=0 ? 'green' : 'red');
+    const moCls = p.change_30d_pct==null ? '' : (p.change_30d_pct>=0 ? 'green' : 'red');
     card.innerHTML = `
       <div class="sym">${p.symbol}</div>
       <div class="value">${fmtUSD(p.value || 0)} · ${p.free} @ ${p.price==null?'—':fmtUSD(p.price)}</div>
       <div class="meta">
-        <div class="${dayCls}">24h ${day}</div>
-        <div class="${pnlCls}">P/L ${pnl}</div>
-        ${p.unreconciled ? '<div class="warn">unreconciled</div>' : ''}
+        <div class="${dayCls}" title="24h price change">24h ${day}</div>
+        <div class="${wkCls}" title="7d price change">7d ${wk}</div>
+        <div class="${moCls}" title="30d price change">30d ${mo}</div>
       </div>
-      ${warn}
     `;
     card.addEventListener('click', () => openChart(p.symbol));
     grid.appendChild(card);

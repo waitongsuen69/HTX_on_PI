@@ -1,6 +1,7 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const { spawn } = require('child_process');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
@@ -40,6 +41,7 @@ const scheduler = createScheduler({ intervalMs: INTERVAL_MS, logger: console, re
 // - NO_LISTEN: skip opening a network socket (useful in restricted sandboxes)
 const DRY_RUN = String(process.env.DRY_RUN || '').toLowerCase() === '1' || String(process.env.DRY_RUN || '').toLowerCase() === 'true';
 const NO_LISTEN = String(process.env.NO_LISTEN || '').toLowerCase() === '1' || String(process.env.NO_LISTEN || '').toLowerCase() === 'true';
+const AUTO_OPEN = String(process.env.AUTO_OPEN || '1').toLowerCase() === '1' || String(process.env.AUTO_OPEN || '1').toLowerCase() === 'true';
 if (DRY_RUN) {
   try {
     const state = loadState();
@@ -149,6 +151,10 @@ const server = app.listen(PORT, BIND_ADDR, () => {
   console.log(`HTX Pi Monitor listening on http://localhost:${PORT}`);
   console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}; ACCESS_KEY=${redactedKey}`);
   if (!DRY_RUN) scheduler.loop();
+  if (AUTO_OPEN && !NO_LISTEN) {
+    const url = `http://localhost:${PORT}`;
+    setTimeout(() => openBrowser(url), 300);
+  }
 });
 
 server.on('error', (err) => {
@@ -161,3 +167,34 @@ server.on('error', (err) => {
   }
   process.exit(1);
 });
+
+function openBrowser(url) {
+  const plt = process.platform;
+  try {
+    if (plt === 'darwin') {
+      spawn('open', [url], { stdio: 'ignore', detached: true }).unref();
+      return;
+    }
+    if (plt === 'win32') {
+      spawn('cmd', ['/c', 'start', '', url], { stdio: 'ignore', detached: true }).unref();
+      return;
+    }
+    // Linux (incl. Raspberry Pi)
+    const browser = process.env.BROWSER;
+    const hasGui = !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+    if (!hasGui) {
+      console.log('AUTO_OPEN skipped: no GUI display detected');
+      return;
+    }
+    if (browser) {
+      spawn(browser, [url], { stdio: 'ignore', detached: true }).unref();
+      return;
+    }
+    // Prefer xdg-open when available; fallback to chromium-browser/chromium
+    try { spawn('xdg-open', [url], { stdio: 'ignore', detached: true }).unref(); return; } catch (_) {}
+    try { spawn('chromium-browser', [url], { stdio: 'ignore', detached: true }).unref(); return; } catch (_) {}
+    try { spawn('chromium', [url], { stdio: 'ignore', detached: true }).unref(); return; } catch (_) {}
+  } catch (_) {
+    // ignore failure to open browser
+  }
+}

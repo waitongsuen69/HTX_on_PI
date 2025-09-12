@@ -21,6 +21,12 @@
       .kv { font-size: 14px; opacity: 0.9; display: grid; grid-template-columns: 72px 1fr; column-gap: 8px; }
       .kv .k { color: #8aa0b6; }
       .kv .v { text-align: left; }
+      /* allocation bar */
+      .alloc { padding: 0 12px 16px; }
+      .alloc-bar { height: 18px; border-radius: 8px; border: 1px solid #1a2330; display:flex; overflow:hidden; background:#0f1722; }
+      .alloc-seg { height: 100%; }
+      .alloc-labels { display:flex; justify-content:space-between; font-size:12px; color:#8aa0b6; margin-top:6px; padding: 0 2px; }
+      .tooltip { position: fixed; display:none; background:#0f1722; border:1px solid #1a2330; border-radius:8px; padding:8px 10px; color:#e6eef7; box-shadow:0 6px 18px rgba(0,0,0,0.5); z-index:50; font-size:12px; pointer-events:none; }
       .meta { display:flex; gap:10px; align-items:baseline; }
       button { background:#1a2330; color:#e6eef7; border:1px solid #2a3a52; padding:6px 10px; border-radius:8px; }
       .warn { color:#ffcf5c; font-size:12px; }
@@ -40,12 +46,19 @@
     <header>
       <h1>HTX Pi Monitor</h1>
       <div class="totals">
-        <div>Total: <span id="total">—</span></div>
+        <div>Total: US$ <span id="total">—</span></div>
         <div>24h: <span id="day">—</span></div>
       </div>
       <div style="flex:1"></div>
       <button id="refresh">Refresh</button>
     </header>
+    <div class="alloc">
+      <div id="allocBar" class="alloc-bar"></div>
+      <div class="alloc-labels">
+        <span id="allocCryptoLabel">Crypto — 0%</span>
+        <span id="allocCashLabel">Cash — 0%</span>
+      </div>
+    </div>
     <div class="grid" id="grid"></div>
 
     <!-- K-line Modal -->

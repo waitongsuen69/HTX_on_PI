@@ -19,7 +19,7 @@ async function load() {
     const r = await fetch('/api/snapshot', { cache: 'no-cache' });
     if (!r.ok) throw new Error('No snapshot');
     const s = await r.json();
-    totalEl.textContent = fmtUSD(s.total_value_usd || 0);
+    totalEl.textContent = fmtNum(s.total_value_usd || 0, 2);
     dayEl.textContent = s.total_change_24h_pct==null ? '—' : fmtPct(s.total_change_24h_pct);
     dayEl.className = s.total_change_24h_pct >= 0 ? 'green' : 'red';
     renderPositions(s.positions || [], Number(s.total_value_usd || 0));

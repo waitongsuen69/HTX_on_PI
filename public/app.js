@@ -13,8 +13,36 @@ let currentSymbol = null;
 let tvChart = null;
 let candleSeries = null;
 let resizeObs = null;
+const refreshBtn = document.getElementById('refresh');
+const lastManualEl = document.getElementById('lastManual');
+const lastAutoEl = document.getElementById('lastAuto');
 
-async function load() {
+function setLoading(on) {
+  if (!refreshBtn) return;
+  if (on) {
+    refreshBtn.classList.add('loading');
+    refreshBtn.setAttribute('aria-busy', 'true');
+    refreshBtn.disabled = true;
+  } else {
+    refreshBtn.classList.remove('loading');
+    refreshBtn.removeAttribute('aria-busy');
+    refreshBtn.disabled = false;
+  }
+}
+
+function fmtTime(ts){ const d=new Date(ts); return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+
+function markRefreshed(kind) {
+  const now = Date.now();
+  if (kind === 'manual') {
+    if (lastManualEl) lastManualEl.textContent = fmtTime(now);
+  } else if (kind === 'auto') {
+    if (lastAutoEl) lastAutoEl.textContent = fmtTime(now);
+  }
+}
+
+async function load(kind) {
+  setLoading(true);
   try {
     const r = await fetch('/api/snapshot', { cache: 'no-cache' });
     if (!r.ok) throw new Error('No snapshot');
@@ -24,8 +52,11 @@ async function load() {
     dayEl.className = s.total_change_24h_pct >= 0 ? 'green' : 'red';
     renderPositions(s.positions || [], Number(s.total_value_usd || 0));
     renderAllocation(s.positions || [], Number(s.total_value_usd || 0));
+    if (kind) markRefreshed(kind);
   } catch (e) {
     console.error(e);
+  } finally {
+    setLoading(false);
   }
 }
 
@@ -49,6 +80,9 @@ function renderPositions(ps, totalWorth) {
     const priceStr = p.price==null ? '—' : fmtNum(p.price, (p.price < 1 ? 6 : 2));
     const weightPct = totalWorth > 0 ? (worth / totalWorth * 100) : 0;
     const c1d = (p.change_1d_pct!=null ? p.change_1d_pct : (p.day_pct!=null ? p.day_pct : null));
+    if (c1d == null || c1d === 0) card.classList.add('flat');
+    else if (c1d > 0) card.classList.add('rise');
+    else card.classList.add('fall');
     const day = c1d==null ? '—' : fmtPct(c1d);
     const wk = p.change_7d_pct==null ? '—' : fmtPct(p.change_7d_pct);
     const mo = p.change_30d_pct==null ? '—' : fmtPct(p.change_30d_pct);
@@ -202,9 +236,9 @@ function attachTooltip(seg, data) {
   if (pth.endsWith('/lots.html')) document.getElementById('nav-lots').classList.add('active');
 })();
 
-document.getElementById('refresh').addEventListener('click', load);
-load();
-setInterval(load, 30_000);
+refreshBtn.addEventListener('click', () => load('manual'));
+load('auto');
+setInterval(() => load('auto'), 30_000);
 
 // --- Simple K-line modal and renderer ---
 chartClose.addEventListener('click', () => { chartModal.style.display = 'none'; });

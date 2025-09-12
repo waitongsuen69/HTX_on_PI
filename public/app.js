@@ -29,7 +29,17 @@ async function load() {
 
 function renderPositions(ps) {
   grid.innerHTML = '';
-  for (const p of ps) {
+  const isStable = (sym) => sym === 'USDT' || sym === 'USDC';
+  const arr = [...ps].sort((a, b) => {
+    const as = isStable(a.symbol || '');
+    const bs = isStable(b.symbol || '');
+    if (as && !bs) return 1; // stables last
+    if (!as && bs) return -1;
+    const av = Number(a.value || 0);
+    const bv = Number(b.value || 0);
+    return bv - av; // higher value first
+  });
+  for (const p of arr) {
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.symbol = p.symbol;

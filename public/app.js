@@ -35,8 +35,8 @@ function renderPositions(ps) {
     const bs = isStable(b.symbol || '');
     if (as && !bs) return 1; // stables last
     if (!as && bs) return -1;
-    const av = Number(a.value || 0);
-    const bv = Number(b.value || 0);
+    const av = Number((a.value != null ? a.value : ((a.free || 0) * (a.price || 0))) || 0);
+    const bv = Number((b.value != null ? b.value : ((b.free || 0) * (b.price || 0))) || 0);
     return bv - av; // higher value first
   });
   for (const p of arr) {

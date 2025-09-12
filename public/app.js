@@ -1,4 +1,5 @@
 const fmtUSD = n => n.toLocaleString(undefined, { style:'currency', currency:'USD', maximumFractionDigits: 2 });
+const fmtNum = (n, max=2) => Number(n||0).toLocaleString(undefined, { maximumFractionDigits: max });
 const fmtPct = n => (n>=0?'+':'') + n.toFixed(2) + '%';
 const grid = document.getElementById('grid');
 const totalEl = document.getElementById('total');
@@ -43,6 +44,8 @@ function renderPositions(ps) {
     const card = document.createElement('div');
     card.className = 'card';
     card.dataset.symbol = p.symbol;
+    const worth = Number((p.value != null ? p.value : ((p.free || 0) * (p.price || 0))) || 0);
+    const priceStr = p.price==null ? '—' : fmtNum(p.price, (p.price < 1 ? 6 : 2));
     const c1d = (p.change_1d_pct!=null ? p.change_1d_pct : (p.day_pct!=null ? p.day_pct : null));
     const day = c1d==null ? '—' : fmtPct(c1d);
     const wk = p.change_7d_pct==null ? '—' : fmtPct(p.change_7d_pct);
@@ -52,7 +55,9 @@ function renderPositions(ps) {
     const moCls = p.change_30d_pct==null ? '' : (p.change_30d_pct>=0 ? 'green' : 'red');
     card.innerHTML = `
       <div class="sym">${p.symbol}</div>
-      <div class="value">${fmtUSD(p.value || 0)} · ${p.free} @ ${p.price==null?'—':fmtUSD(p.price)}</div>
+      <div class="kv"><span class="k">Qty</span><span class="v">${p.free}</span></div>
+      <div class="kv"><span class="k">Price</span><span class="v">${priceStr}</span></div>
+      <div class="kv"><span class="k">Value</span><span class="v">${fmtNum(worth, 2)}</span></div>
       <div class="meta">
         <div class="${dayCls}" title="24h price change">24h ${day}</div>
         <div class="${wkCls}" title="7d price change">7d ${wk}</div>

@@ -1,4 +1,4 @@
-const state = { items: [], sortKey: 'name', sortDir: 'asc', q: '', platformFilter: '', editingId: null };
+const state = { items: [], sortKey: 'name', sortDir: 'asc', editingId: null };
 
 function toast(msg, ms = 1600) {
   const el = document.getElementById('toast');
@@ -45,16 +45,7 @@ function sortItems(items) {
   return arr;
 }
 
-function filtered(items) {
-  const q = state.q.trim().toLowerCase();
-  const pf = state.platformFilter;
-  return items.filter((x) => {
-    const platformOrChain = String(x.platform || x.chain || '').toLowerCase();
-    const matchQ = !q || x.name.toLowerCase().includes(q) || platformOrChain.includes(q);
-    const matchP = !pf || platformOrChain === pf.toLowerCase();
-    return matchQ && matchP;
-  });
-}
+function filtered(items) { return items; }
 
 function render() {
   const tbody = document.getElementById('rows');
@@ -184,8 +175,6 @@ function bindUI() {
   document.getElementById('btnAdd').addEventListener('click', onAdd);
   document.getElementById('btnClose').addEventListener('click', closeModal);
   document.getElementById('btnSave').addEventListener('click', onSave);
-  document.getElementById('search').addEventListener('input', debounce((e) => { state.q = e.target.value; render(); }, 200));
-  document.getElementById('platformFilter').addEventListener('change', (e) => { state.platformFilter = e.target.value; render(); });
   document.querySelectorAll('thead th[data-sort]').forEach((th) => { th.addEventListener('click', () => setSort(th.getAttribute('data-sort'))); });
   const typeEl = document.getElementById('fType');
   if (typeEl) {

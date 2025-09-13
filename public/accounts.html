@@ -33,6 +33,7 @@
       .status.warn { background:#d97706; color:#fff; }
       .status.down { background:#dc2626; color:#fff; }
       .badge { background:#0b1220; border:1px solid #1f2937; border-radius:9999px; padding:3px 8px; font-size:12px; font-weight:600; }
+      .today { color:#c9d7ee; }
       .ops { display:flex; gap:6px; }
       .ops button { padding:4px 8px; font-size:12px; }
       .toast { position: fixed; right: 10px; bottom: 10px; background:#0f1722; border:1px solid #1a2330; color:#e6eef7; padding:8px 10px; border-radius:8px; display:none; z-index:50; }
@@ -71,10 +72,11 @@
         <thead>
           <tr>
             <th data-sort="name">Name</th>
-            <th data-sort="platform">Platform</th>
+            <th data-sort="platform">Platform/Chain</th>
             <th>Type</th>
             <th data-sort="status">Status</th>
-            <th>Last Update</th>
+            <th>Today</th>
+            <th>Last Used</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -110,6 +112,36 @@
                 <option>DEX</option>
               </select>
             </label>
+            <div id="cexFields" class="full" style="display:none;">
+              <div class="form" style="grid-template-columns: 1fr 1fr;">
+                <label>
+                  <span>Access Key</span>
+                  <input id="fAccessKey" placeholder="HTX API key" />
+                </label>
+                <label>
+                  <span>Secret Key</span>
+                  <input id="fSecretKey" placeholder="HTX API secret" />
+                </label>
+              </div>
+            </div>
+            <div id="dexFields" class="full" style="display:none;">
+              <div class="form" style="grid-template-columns: 1fr 1fr;">
+                <label>
+                  <span>Chain</span>
+                  <select id="fChain">
+                    <option>tron</option>
+                    <option>ethereum</option>
+                    <option>arbitrum</option>
+                    <option>polygon</option>
+                    <option>custom</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Address</span>
+                  <input id="fAddress" placeholder="0x... or T..." />
+                </label>
+              </div>
+            </div>
             <label>
               <span>Enabled</span>
               <input id="fEnabled" type="checkbox" checked />

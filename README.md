@@ -6,7 +6,7 @@ Raspberry Pi web UI for HTX (Huobi) balances. Pulls private balances + public pr
 Quickstart
 ----------
 
-- `cp .env.example .env` and fill HTX keys
+- `cp .env.example .env` and fill HTX keys (deprecated: see Accounts Registry below)
 - `npm i`
 - `npm start` (or `node src/server.js`)
 - Open `http://<pi-ip>:<PORT>` (default 8080)
@@ -25,7 +25,7 @@ Environment
 - `PORT` default 8080; `BIND_ADDR` default 0.0.0.0
 - `REF_FIAT` default USD; `PULL_INTERVAL_MS` default 60000
 - `MIN_USD_IGNORE` default 10 (ignore positions worth less than this USD)
-- `HTX_ACCESS_KEY`, `HTX_SECRET_KEY`, `HTX_ACCOUNT_ID`
+- `HTX_ACCESS_KEY`, `HTX_SECRET_KEY`, `HTX_ACCOUNT_ID` (deprecated; use Accounts Registry)
 - Optional: `DRY_RUN=1`, `NO_LISTEN=1`, `DEBUG=1`
 
 Files
@@ -33,6 +33,25 @@ Files
 
 - `data/state.json` (created at runtime)
 - `data/cost_basis_lots.json` (manual cost basis / lots)
+- `data/accounts.json` (local accounts registry; not committed)
+
+Accounts Registry
+-----------------
+
+- Local-only JSON at `data/accounts.json` (gitignored). Example:
+
+```
+{
+  "meta": { "last_id": 2 },
+  "items": [
+    { "id": "000001", "name": "HTX_main", "type": "cex", "platform": "HTX", "access_key": "REPLACE", "secret_key": "REPLACE", "enabled": true, "today": {"calls": 0}, "last_used": null, "status": "ok" },
+    { "id": "000002", "name": "TronLink_wallet", "type": "dex", "chain": "tron", "address": "Txxxx", "enabled": true, "today": {"calls": 0}, "last_used": null, "status": "ok" }
+  ]
+}
+```
+
+- Tip: protect locally with `chmod 600 data/accounts.json`.
+- Secrets never leave the server; `/api/accounts` is sanitized (no `secret_key`, masked `access_key`).
 
 APIs
 ----

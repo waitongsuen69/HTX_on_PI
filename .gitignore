@@ -31,4 +31,5 @@ Thumbs.db
 data/state.json
 data/.tmp-*
 data
+data/accounts.json
 package-lock.json

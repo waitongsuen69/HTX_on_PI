@@ -1,11 +1,4 @@
-const state = {
-  items: [],
-  sortKey: 'name',
-  sortDir: 'asc',
-  q: '',
-  platformFilter: '',
-  editingId: null,
-};
+const state = { items: [], sortKey: 'name', sortDir: 'asc', q: '', platformFilter: '', editingId: null };
 
 function toast(msg, ms = 1600) {
   const el = document.getElementById('toast');
@@ -36,9 +29,7 @@ function fmtTime(ts) {
     const days = Math.floor(h / 24);
     if (days < 7) return `${days}d ago`;
     return d.toISOString().slice(0, 19).replace('T', ' ');
-  } catch (_) {
-    return String(ts);
-  }
+  } catch (_) { return String(ts); }
 }
 
 function sortItems(items) {
@@ -46,10 +37,8 @@ function sortItems(items) {
   const dir = state.sortDir === 'desc' ? -1 : 1;
   const arr = [...items];
   arr.sort((a, b) => {
-    let av = a[key];
-    let bv = b[key];
-    av = String(av || '').toLowerCase();
-    bv = String(bv || '').toLowerCase();
+    let av = String((a[key] ?? '')).toLowerCase();
+    let bv = String((b[key] ?? '')).toLowerCase();
     if (av === bv) return 0;
     return av > bv ? dir : -dir;
   });
@@ -60,8 +49,9 @@ function filtered(items) {
   const q = state.q.trim().toLowerCase();
   const pf = state.platformFilter;
   return items.filter((x) => {
-    const matchQ = !q || x.name.toLowerCase().includes(q) || String(x.platform || '').toLowerCase().includes(q);
-    const matchP = !pf || x.platform === pf;
+    const platformOrChain = String(x.platform || x.chain || '').toLowerCase();
+    const matchQ = !q || x.name.toLowerCase().includes(q) || platformOrChain.includes(q);
+    const matchP = !pf || platformOrChain === pf.toLowerCase();
     return matchQ && matchP;
   });
 }
@@ -73,14 +63,17 @@ function render() {
   const rows = items.map((a) => {
     const statusClass = `pill status ${a.status}`;
     const dotColor = a.status === 'ok' ? '#0aff7a' : a.status === 'warn' ? '#ffd166' : '#ff6b6b';
-    const badge = `<span class="badge">${a.platform || '—'}</span>`;
+    const badgeVal = (String(a.type || '').toLowerCase() === 'dex') ? (a.chain || '—') : (a.platform || '—');
+    const badge = `<span class="badge">${badgeVal}</span>`;
     const trClass = a.enabled ? '' : 'row-disabled';
+        const today = `<span class="today">${Number((a.today && a.today.calls) || 0)} calls</span>`;
     return `
       <tr class="${trClass}">
         <td>${a.name}</td>
         <td>${badge}</td>
-        <td><span class="muted">${a.type || '—'}</span></td>
-        <td><span class="${statusClass}"><span class="dot" style="background:${dotColor}"></span>${(a.status||'ok').toUpperCase()}</span></td>
+        <td><span class="muted">${(a.type || '').toUpperCase()}</span></td>
+        <td><span class="${statusClass}"><span class="dot" style="background:${dotColor}"></span>${(a.status || 'ok').toUpperCase()}</span></td>
+                <td>${today}</td>
         <td>${fmtTime(a.last_used)}</td>
         <td>
           <div class="ops">
@@ -91,9 +84,8 @@ function render() {
         </td>
       </tr>`;
   }).join('');
-  tbody.innerHTML = rows || `<tr><td colspan="6" class="muted" style="text-align:center; padding:16px;">No accounts</td></tr>`;
+  tbody.innerHTML = rows || `<tr><td colspan="7" class="muted" style="text-align:center; padding:16px;">No accounts</td></tr>`;
 
-  // Bind actions via event delegation
   tbody.querySelectorAll('button[data-act]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       const id = e.currentTarget.getAttribute('data-id');
@@ -117,52 +109,58 @@ function openModal(title) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modal').style.display = 'flex';
 }
-function closeModal() {
-  document.getElementById('modal').style.display = 'none';
-}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
 function fillForm(a) {
   document.getElementById('fName').value = a?.name || '';
-  document.getElementById('fPlatform').value = a?.platform || 'Custom';
+  document.getElementById('fPlatform').value = a?.platform || 'HTX';
   const t = (a?.type || 'CEX').toUpperCase();
   document.getElementById('fType').value = (t === 'DEX' ? 'DEX' : 'CEX');
+  document.getElementById('fAccessKey').value = '';
+  document.getElementById('fSecretKey').value = '';
+  document.getElementById('fChain').value = a?.chain || 'tron';
+  document.getElementById('fAddress').value = a?.address || '';
   document.getElementById('fEnabled').checked = a?.enabled != null ? !!a.enabled : true;
+  const isDex = (t === 'DEX');
+  document.getElementById('cexFields').style.display = isDex ? 'none' : 'block';
+  document.getElementById('dexFields').style.display = isDex ? 'block' : 'none';
 }
 
 function readForm() {
-  return {
+  const type = document.getElementById('fType').value;
+  const common = {
     name: document.getElementById('fName').value.trim(),
-    platform: document.getElementById('fPlatform').value,
-    type: document.getElementById('fType').value,
+    type,
     enabled: document.getElementById('fEnabled').checked,
   };
+  if (type === 'DEX') {
+    return {
+      ...common,
+      chain: document.getElementById('fChain').value,
+      address: (document.getElementById('fAddress').value || '').trim(),
+    };
+  } else {
+    return {
+      ...common,
+      platform: document.getElementById('fPlatform').value,
+      access_key: (document.getElementById('fAccessKey').value || '').trim(),
+      secret_key: (document.getElementById('fSecretKey').value || '').trim(),
+    };
+  }
 }
 
-function onAdd() {
-  state.editingId = null;
-  fillForm(null);
-  openModal('Add Account');
-}
-
-function onEdit(id) {
-  state.editingId = id;
-  const a = state.items.find((x) => x.id === id);
-  fillForm(a || null);
-  openModal('Edit Account');
-}
-
-async function onDelete(id) {
-  if (!confirm('Delete this account?')) return;
-  const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
-  if (!res.ok) { toast('Delete failed'); return; }
-  await load();
-  render();
-  toast('Deleted');
-}
+function onAdd() { state.editingId = null; fillForm(null); openModal('Add Account'); }
+function onEdit(id) { state.editingId = id; const a = state.items.find((x) => x.id === id); fillForm(a || null); openModal('Edit Account'); }
+async function onDelete(id) { if (!confirm('Delete this account?')) return; const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' }); if (!res.ok) { toast('Delete failed'); return; } await load(); render(); toast('Deleted'); }
 
 async function onSave() {
   const payload = readForm();
   if (!payload.name) { toast('Name is required'); return; }
+  const t = payload.type;
+  if (t === 'CEX' && !state.editingId) {
+    if (!payload.access_key || !payload.secret_key) { toast('Access/Secret required'); return; }
+  }
+  if (t === 'DEX' && !payload.address) { toast('Address required'); return; }
   let res;
   if (state.editingId) {
     res = await fetch(`/api/accounts/${state.editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -177,12 +175,8 @@ async function onSave() {
 }
 
 function setSort(key) {
-  if (state.sortKey === key) {
-    state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
-  } else {
-    state.sortKey = key;
-    state.sortDir = 'asc';
-  }
+  if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+  else { state.sortKey = key; state.sortDir = 'asc'; }
   render();
 }
 
@@ -194,19 +188,16 @@ function bindUI() {
   document.getElementById('btnSave').addEventListener('click', onSave);
   document.getElementById('search').addEventListener('input', debounce((e) => { state.q = e.target.value; render(); }, 200));
   document.getElementById('platformFilter').addEventListener('change', (e) => { state.platformFilter = e.target.value; render(); });
-  document.querySelectorAll('thead th[data-sort]').forEach((th) => {
-    th.addEventListener('click', () => setSort(th.getAttribute('data-sort')));
-  });
+  document.querySelectorAll('thead th[data-sort]').forEach((th) => { th.addEventListener('click', () => setSort(th.getAttribute('data-sort'))); });
+  const typeEl = document.getElementById('fType');
+  if (typeEl) {
+    typeEl.addEventListener('change', () => {
+      const isDex = typeEl.value === 'DEX';
+      document.getElementById('cexFields').style.display = isDex ? 'none' : 'block';
+      document.getElementById('dexFields').style.display = isDex ? 'block' : 'none';
+    });
+  }
 }
 
-async function init() {
-  bindUI();
-  await load();
-  render();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+async function init() { bindUI(); await load(); render(); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -139,10 +139,10 @@ app.get('/api/history', (req, res) => {
 app.use('/api/lots', require('./routes/lots'));
 app.use('/api/market', require('./routes/market'));
 
-// Accounts API
+// Accounts API (sanitized)
 app.get('/api/accounts', async (req, res) => {
   try {
-    const items = await Accounts.list();
+    const items = await Accounts.listSanitized();
     res.json({ items });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
@@ -154,15 +154,18 @@ app.post('/api/accounts', async (req, res) => {
     const body = req.body || {};
     const item = await Accounts.create({
       name: body.name,
-      platform: body.platform,
       type: body.type,
-      priority: body.priority,
-      proxy: body.proxy,
+      platform: body.platform,
+      access_key: body.access_key,
+      secret_key: body.secret_key,
+      chain: body.chain,
+      address: body.address,
       enabled: body.enabled,
     });
-    res.status(201).json({ item });
+    res.status(201).json({ item: Accounts.sanitizeAccount(item) });
   } catch (e) {
-    res.status(500).json({ error: 'server_error', message: e.message });
+    const code = e && e.message === 'invalid_account' ? 400 : 500;
+    res.status(code).json({ error: e.message || 'server_error' });
   }
 });
 
@@ -171,7 +174,7 @@ app.patch('/api/accounts/:id', async (req, res) => {
     const id = String(req.params.id);
     const item = await Accounts.update(id, req.body || {});
     if (!item) return res.status(404).json({ error: 'not_found' });
-    res.json({ item });
+    res.json({ item: Accounts.sanitizeAccount(item) });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -193,7 +196,7 @@ app.post('/api/accounts/:id/toggle', async (req, res) => {
     const id = String(req.params.id);
     const item = await Accounts.toggle(id);
     if (!item) return res.status(404).json({ error: 'not_found' });
-    res.json({ item });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -203,9 +206,9 @@ app.post('/api/accounts/:id/ping', async (req, res) => {
   try {
     const id = String(req.params.id);
     const body = req.body || {};
-    const item = await Accounts.pingUsage(id, { callsDelta: body.callsDelta || 0, tokensDelta: body.tokensDelta || 0 });
+    const item = await Accounts.pingUsage(id, { callsDelta: body.callsDelta || 0 });
     if (!item) return res.status(404).json({ error: 'not_found' });
-    res.json({ item });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -218,7 +221,7 @@ app.post('/api/accounts/:id/status', async (req, res) => {
     if (!['ok', 'warn', 'down'].includes(String(status))) return res.status(400).json({ error: 'invalid_status' });
     const item = await Accounts.health(id, status);
     if (!item) return res.status(404).json({ error: 'not_found' });
-    res.json({ item });
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -232,10 +235,9 @@ if (NO_LISTEN) {
 }
 
 const server = app.listen(PORT, BIND_ADDR, () => {
-  const redactedKey = (process.env.HTX_ACCESS_KEY || '').slice(0, 3) + '***';
   // For simplicity, display localhost URL for users even if binding to a different interface.
   console.log(`HTX Pi Monitor listening on http://localhost:${PORT}`);
-  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}; ACCESS_KEY=${redactedKey}`);
+  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}`);
   if (!DRY_RUN) scheduler.loop();
   if (AUTO_OPEN && !NO_LISTEN) {
     const url = `http://localhost:${PORT}`;

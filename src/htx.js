@@ -208,3 +208,81 @@ module.exports = {
   getMatchResults,
   getKlines,
 };
+
+// Factory for per-account HTX clients (replaces env keys)
+function createHTXClient({ accessKey, secretKey, accountId = '', host = BASE_HOST } = {}) {
+  const baseHost = host || BASE_HOST;
+  const baseUrl = `https://${baseHost}`;
+  function privGet(path, extraParams = {}) {
+    if (!accessKey || !secretKey) throw new Error('HTX keys not set');
+    const params = {
+      AccessKeyId: accessKey,
+      SignatureMethod: 'HmacSHA256',
+      SignatureVersion: '2',
+      Timestamp: utcISOStringNoMs(),
+      ...extraParams,
+    };
+    const query = buildSignedQuery('GET', baseHost, path, params, secretKey);
+    const url = `${baseUrl}${path}?${query}`;
+    return axios.get(url, { timeout: HTTP_TIMEOUT }).then((res) => {
+      if (res.data && res.data.status === 'ok') return res.data.data;
+      const body = res && res.data ? res.data : {};
+      const status = body.status || 'error';
+      const code = body['err-code'] || body.code || '';
+      const msg = body['err-msg'] || body.message || '';
+      const extra = [code, msg].filter(Boolean).join(' - ');
+      throw new Error(`HTX private error: ${status}${extra ? ` ${extra}` : ''}`);
+    });
+  }
+  async function listAccountsC() { return privGet('/v1/account/accounts', {}); }
+  async function fetchBalancesForAccountC(accId) {
+    const path = `/v1/account/accounts/${accId}/balance`;
+    const data = await privGet(path, {});
+    const byCurrency = {};
+    const accType = String((data && data.type) || '').toLowerCase();
+    const allowedTypes = accType === 'deposit-earning' ? new Set(['lending', 'trade']) : new Set(['trade']);
+    if (data && Array.isArray(data.list)) {
+      for (const item of data.list) {
+        if (!allowedTypes.has(String(item.type || '').toLowerCase())) continue;
+        const cur = String(item.currency || '').toUpperCase();
+        const bal = Number(item.balance || 0);
+        if (!cur) continue;
+        if (!byCurrency[cur]) byCurrency[cur] = { free: 0 };
+        byCurrency[cur].free += bal;
+      }
+    }
+    return byCurrency;
+  }
+  function mergeBalancesC(target, add) {
+    for (const [cur, v] of Object.entries(add || {})) {
+      if (!target[cur]) target[cur] = { free: 0 };
+      target[cur].free += Number(v.free || 0);
+    }
+    return target;
+  }
+  async function getBalancesC() {
+    const accounts = await listAccountsC();
+    const wantedTypes = new Set(['spot', 'deposit-earning']);
+    const idSet = new Set();
+    if (accountId) idSet.add(String(accountId));
+    for (const a of (Array.isArray(accounts) ? accounts : [])) {
+      const t = String(a.type || '').toLowerCase();
+      if (wantedTypes.has(t)) idSet.add(String(a.id));
+    }
+    const hasSpot = accountId ? true : (Array.isArray(accounts) && accounts.some(a => String(a.type || '').toLowerCase() === 'spot'));
+    if (!hasSpot) throw new Error('HTX spot account id not found');
+    const idsToFetch = Array.from(idSet);
+    let merged = {};
+    for (const id of idsToFetch) {
+      const bal = await fetchBalancesForAccountC(id);
+      merged = mergeBalancesC(merged, bal);
+    }
+    return merged;
+  }
+  return {
+    getBalances: getBalancesC,
+    getPrices, // public; reuse global
+  };
+}
+
+module.exports.createHTXClient = createHTXClient;

@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accounts — HTX Pi Monitor</title>
+    <meta name="theme-color" content="#0f172a">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json">
+    <style>
+      body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b0f14; color: #e6eef7; }
+      .nav { display:flex; gap:8px; align-items:center; padding:8px 12px; background:#0d141d; border-bottom:1px solid #1a2330; position:sticky; top:0; z-index:10; }
+      .nav a { color:#c9d7ee; text-decoration:none; padding:6px 10px; border-radius:8px; border:1px solid transparent; }
+      .nav a.active { background:#13202e; border-color:#24354a; color:#fff; }
+      header { padding: 10px 12px; position: sticky; top: 0; background: rgba(11,15,20,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid #1a2330; display:flex; align-items:center; gap:10px; }
+      h1 { font-size: 16px; margin: 0; }
+      .spacer { flex:1; }
+      .actions { display:flex; gap:8px; align-items:center; }
+      button, .btn { background:#1a2330; color:#e6eef7; border:1px solid #2a3a52; padding:6px 10px; border-radius:8px; cursor:pointer; }
+      button:hover, .btn:hover { background:#182233; }
+      .muted { color:#8aa0b6; }
+      .container { padding: 12px; }
+      .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+      .toolbar input, .toolbar select { background:#0f1722; color:#e6eef7; border:1px solid #2a3a52; border-radius:8px; padding:6px 10px; }
+      table { width:100%; border-collapse: collapse; background:#0f1722; border:1px solid #1a2330; border-radius:10px; overflow:hidden; }
+      thead th { text-align:left; font-weight:600; font-size:12px; color:#9bb1c9; padding:10px 10px; border-bottom:1px solid #1a2330; cursor:pointer; }
+      tbody td { padding:10px; font-size:13px; border-bottom:1px solid #141d29; }
+      tbody tr:last-child td { border-bottom:none; }
+      .row-disabled { opacity:0.55; }
+      .pill { border-radius:9999px; padding:4px 10px; font-weight:600; font-size:12px; display:inline-flex; align-items:center; gap:6px; }
+      .pill .dot { width:8px; height:8px; border-radius:9999px; display:inline-block; }
+      .status.ok { background:#0b3; color:#fff; }
+      .status.warn { background:#d97706; color:#fff; }
+      .status.down { background:#dc2626; color:#fff; }
+      .badge { background:#0b1220; border:1px solid #1f2937; border-radius:9999px; padding:3px 8px; font-size:12px; font-weight:600; }
+      .progress { background:#0b1220; border:1px solid #1f2937; height:10px; border-radius:6px; overflow:hidden; }
+      .progress .bar { height:100%; background:#3b82f6; width:0%; transition:width 0.2s ease; }
+      .today { color:#c9d7ee; }
+      .ops { display:flex; gap:6px; }
+      .ops button { padding:4px 8px; font-size:12px; }
+      .toast { position: fixed; right: 10px; bottom: 10px; background:#0f1722; border:1px solid #1a2330; color:#e6eef7; padding:8px 10px; border-radius:8px; display:none; z-index:50; }
+      /* modal */
+      .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index: 40; }
+      .modal .panel { width: min(96vw, 720px); background:#0f1722; border:1px solid #1a2330; border-radius:10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+      .modal header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #1a2330; position: static; background:transparent; }
+      .modal .body { padding: 10px 12px 12px; }
+      .form { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+      .form label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:#9bb1c9; }
+      .form input, .form select, .form textarea { background:#0b1220; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 10px; }
+      .form .full { grid-column: 1 / -1; }
+      .modal .footer { display:flex; justify-content:flex-end; gap:8px; padding: 0 12px 12px; }
+      @media (max-width: 680px) { .form { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div id="nav"></div>
+    <header>
+      <h1>Accounts</h1>
+      <div class="spacer"></div>
+      <div class="actions">
+        <input id="search" type="search" placeholder="Search…" />
+        <select id="platformFilter">
+          <option value="">All Platforms</option>
+          <option>HTX</option>
+          <option>TRON</option>
+          <option>EVM</option>
+          <option>Custom</option>
+        </select>
+        <button id="btnAdd">+ Add Account</button>
+      </div>
+    </header>
+    <div class="container">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name">Name</th>
+            <th data-sort="platform">Platform</th>
+            <th>Type</th>
+            <th data-sort="status">Status</th>
+            <th data-sort="priority">Priority</th>
+            <th>Proxy</th>
+            <th>Today</th>
+            <th>Last Used</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="modal" id="modal">
+      <div class="panel">
+        <header>
+          <div id="modalTitle">Add Account</div>
+          <button id="btnClose" class="btn">Close</button>
+        </header>
+        <div class="body">
+          <div class="form">
+            <label>
+              <span>Name</span>
+              <input id="fName" />
+            </label>
+            <label>
+              <span>Platform</span>
+              <select id="fPlatform">
+                <option>HTX</option>
+                <option>TRON</option>
+                <option>EVM</option>
+                <option>Custom</option>
+              </select>
+            </label>
+            <label>
+              <span>Type</span>
+              <select id="fType">
+                <option>read-only</option>
+                <option>on-chain</option>
+                <option>other</option>
+              </select>
+            </label>
+            <label>
+              <span>Priority</span>
+              <input id="fPriority" type="range" min="0" max="100" value="50" />
+            </label>
+            <label class="full">
+              <span>Proxy</span>
+              <input id="fProxy" placeholder="http://user:pass@host:port (optional)" />
+            </label>
+            <label>
+              <span>Enabled</span>
+              <input id="fEnabled" type="checkbox" checked />
+            </label>
+          </div>
+        </div>
+        <div class="footer">
+          <button id="btnSave" class="btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/nav.js"></script>
+    <script type="module" src="/accounts.js"></script>
+  </body>
+  </html>
+

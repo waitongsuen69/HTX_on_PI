@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const { loadState, addSnapshot, saveStateAtomic } = require('./state');
 const { createScheduler } = require('./scheduler');
 const { backfillHistoryIfNeeded, captureCurrentSnapshot } = require('./backfill');
+const Accounts = require('./accounts');
 const { computeChangesFromKlines } = require('./services/marketChange');
 
 // moved kline change computation to services/marketChange (keep server thin)
@@ -137,6 +138,91 @@ app.get('/api/history', (req, res) => {
 // New Lots routes (Cost Basis Book)
 app.use('/api/lots', require('./routes/lots'));
 app.use('/api/market', require('./routes/market'));
+
+// Accounts API
+app.get('/api/accounts', async (req, res) => {
+  try {
+    const items = await Accounts.list();
+    res.json({ items });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.post('/api/accounts', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const item = await Accounts.create({
+      name: body.name,
+      platform: body.platform,
+      type: body.type,
+      priority: body.priority,
+      proxy: body.proxy,
+      enabled: body.enabled,
+    });
+    res.status(201).json({ item });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.patch('/api/accounts/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const item = await Accounts.update(id, req.body || {});
+    if (!item) return res.status(404).json({ error: 'not_found' });
+    res.json({ item });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.delete('/api/accounts/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const ok = await Accounts.remove(id);
+    if (!ok) return res.status(404).json({ error: 'not_found' });
+    res.status(204).end();
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.post('/api/accounts/:id/toggle', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const item = await Accounts.toggle(id);
+    if (!item) return res.status(404).json({ error: 'not_found' });
+    res.json({ item });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.post('/api/accounts/:id/ping', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const body = req.body || {};
+    const item = await Accounts.pingUsage(id, { callsDelta: body.callsDelta || 0, tokensDelta: body.tokensDelta || 0 });
+    if (!item) return res.status(404).json({ error: 'not_found' });
+    res.json({ item });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.post('/api/accounts/:id/status', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const status = (req.body && req.body.status) || 'ok';
+    if (!['ok', 'warn', 'down'].includes(String(status))) return res.status(400).json({ error: 'invalid_status' });
+    const item = await Accounts.health(id, status);
+    if (!item) return res.status(404).json({ error: 'not_found' });
+    res.json({ item });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
 
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');

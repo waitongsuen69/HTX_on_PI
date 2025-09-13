@@ -120,7 +120,6 @@ function fillForm(a) {
   document.getElementById('fSecretKey').value = '';
   document.getElementById('fChain').value = a?.chain || 'tron';
   document.getElementById('fAddress').value = a?.address || '';
-  document.getElementById('fEnabled').checked = a?.enabled != null ? !!a.enabled : true;
   const isDex = (t === 'DEX');
   document.getElementById('cexFields').style.display = isDex ? 'none' : 'block';
   document.getElementById('dexFields').style.display = isDex ? 'block' : 'none';
@@ -131,7 +130,6 @@ function readForm() {
   const common = {
     name: document.getElementById('fName').value.trim(),
     type,
-    enabled: document.getElementById('fEnabled').checked,
   };
   if (type === 'DEX') {
     return {

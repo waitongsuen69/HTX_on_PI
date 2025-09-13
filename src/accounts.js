@@ -191,6 +191,17 @@ async function getRawById(id) {
   return (st.items || []).find((x) => x.id === String(id)) || null;
 }
 
+function isTronDex(a) {
+  return a && a.type === 'dex' && String(a.chain || '').toLowerCase() === 'tron' && !!a.address;
+}
+
+async function getTronAddresses() {
+  const st = await loadAccounts();
+  return (st.items || [])
+    .filter((a) => isTronDex(a) && a.enabled)
+    .map((a) => ({ id: a.id, name: a.name, address: a.address }));
+}
+
 module.exports = {
   ACCOUNTS_FILE,
   loadAccounts,
@@ -207,4 +218,5 @@ module.exports = {
   health,
   redact,
   sanitizeAccount,
+  getTronAddresses,
 };

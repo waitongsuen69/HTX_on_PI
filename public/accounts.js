@@ -41,13 +41,6 @@ function fmtTime(ts) {
   }
 }
 
-function fmtToday(t) {
-  if (!t) return '0 calls';
-  const calls = Number(t.calls || 0);
-  const tokens = Number(t.tokens || 0);
-  return tokens > 0 ? `${calls} calls • ${tokens} tokens` : `${calls} calls`;
-}
-
 function sortItems(items) {
   const key = state.sortKey;
   const dir = state.sortDir === 'desc' ? -1 : 1;
@@ -55,8 +48,8 @@ function sortItems(items) {
   arr.sort((a, b) => {
     let av = a[key];
     let bv = b[key];
-    if (key === 'priority') { av = Number(av || 0); bv = Number(bv || 0); }
-    else { av = String(av || '').toLowerCase(); bv = String(bv || '').toLowerCase(); }
+    av = String(av || '').toLowerCase();
+    bv = String(bv || '').toLowerCase();
     if (av === bv) return 0;
     return av > bv ? dir : -dir;
   });
@@ -81,9 +74,6 @@ function render() {
     const statusClass = `pill status ${a.status}`;
     const dotColor = a.status === 'ok' ? '#0aff7a' : a.status === 'warn' ? '#ffd166' : '#ff6b6b';
     const badge = `<span class="badge">${a.platform || '—'}</span>`;
-    const proxy = a.proxy ? `<span class="badge">proxy</span>` : '<span class="muted">—</span>';
-    const today = `<span class="today">${fmtToday(a.today)}</span>`;
-    const bar = `<div class="progress"><div class="bar" style="width:${Math.max(0, Math.min(100, Number(a.priority||0)))}%"></div></div>`;
     const trClass = a.enabled ? '' : 'row-disabled';
     return `
       <tr class="${trClass}">
@@ -91,9 +81,6 @@ function render() {
         <td>${badge}</td>
         <td><span class="muted">${a.type || '—'}</span></td>
         <td><span class="${statusClass}"><span class="dot" style="background:${dotColor}"></span>${(a.status||'ok').toUpperCase()}</span></td>
-        <td>${bar}</td>
-        <td>${proxy}</td>
-        <td>${today}</td>
         <td>${fmtTime(a.last_used)}</td>
         <td>
           <div class="ops">
@@ -104,7 +91,7 @@ function render() {
         </td>
       </tr>`;
   }).join('');
-  tbody.innerHTML = rows || `<tr><td colspan="9" class="muted" style="text-align:center; padding:16px;">No accounts</td></tr>`;
+  tbody.innerHTML = rows || `<tr><td colspan="6" class="muted" style="text-align:center; padding:16px;">No accounts</td></tr>`;
 
   // Bind actions via event delegation
   tbody.querySelectorAll('button[data-act]').forEach((btn) => {
@@ -138,8 +125,6 @@ function fillForm(a) {
   document.getElementById('fName').value = a?.name || '';
   document.getElementById('fPlatform').value = a?.platform || 'Custom';
   document.getElementById('fType').value = a?.type || 'other';
-  document.getElementById('fPriority').value = a?.priority != null ? a.priority : 50;
-  document.getElementById('fProxy').value = a?.proxy || '';
   document.getElementById('fEnabled').checked = a?.enabled != null ? !!a.enabled : true;
 }
 
@@ -148,8 +133,6 @@ function readForm() {
     name: document.getElementById('fName').value.trim(),
     platform: document.getElementById('fPlatform').value,
     type: document.getElementById('fType').value,
-    priority: Number(document.getElementById('fPriority').value),
-    proxy: (document.getElementById('fProxy').value || '').trim() || null,
     enabled: document.getElementById('fEnabled').checked,
   };
 }
@@ -226,4 +209,3 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
-

@@ -33,9 +33,6 @@
       .status.warn { background:#d97706; color:#fff; }
       .status.down { background:#dc2626; color:#fff; }
       .badge { background:#0b1220; border:1px solid #1f2937; border-radius:9999px; padding:3px 8px; font-size:12px; font-weight:600; }
-      .progress { background:#0b1220; border:1px solid #1f2937; height:10px; border-radius:6px; overflow:hidden; }
-      .progress .bar { height:100%; background:#3b82f6; width:0%; transition:width 0.2s ease; }
-      .today { color:#c9d7ee; }
       .ops { display:flex; gap:6px; }
       .ops button { padding:4px 8px; font-size:12px; }
       .toast { position: fixed; right: 10px; bottom: 10px; background:#0f1722; border:1px solid #1a2330; color:#e6eef7; padding:8px 10px; border-radius:8px; display:none; z-index:50; }
@@ -77,10 +74,7 @@
             <th data-sort="platform">Platform</th>
             <th>Type</th>
             <th data-sort="status">Status</th>
-            <th data-sort="priority">Priority</th>
-            <th>Proxy</th>
-            <th>Today</th>
-            <th>Last Used</th>
+            <th>Last Update</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -118,14 +112,6 @@
               </select>
             </label>
             <label>
-              <span>Priority</span>
-              <input id="fPriority" type="range" min="0" max="100" value="50" />
-            </label>
-            <label class="full">
-              <span>Proxy</span>
-              <input id="fProxy" placeholder="http://user:pass@host:port (optional)" />
-            </label>
-            <label>
               <span>Enabled</span>
               <input id="fEnabled" type="checkbox" checked />
             </label>
@@ -143,4 +129,3 @@
     <script type="module" src="/accounts.js"></script>
   </body>
   </html>
-

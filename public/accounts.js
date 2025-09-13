@@ -124,7 +124,8 @@ function closeModal() {
 function fillForm(a) {
   document.getElementById('fName').value = a?.name || '';
   document.getElementById('fPlatform').value = a?.platform || 'Custom';
-  document.getElementById('fType').value = a?.type || 'other';
+  const t = (a?.type || 'CEX').toUpperCase();
+  document.getElementById('fType').value = (t === 'DEX' ? 'DEX' : 'CEX');
   document.getElementById('fEnabled').checked = a?.enabled != null ? !!a.enabled : true;
 }
 

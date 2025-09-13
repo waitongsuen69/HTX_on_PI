@@ -57,13 +57,18 @@ async function get(id) {
   return (st.items || []).find((a) => a.id === String(id)) || null;
 }
 
+function normalizeType(val) {
+  const t = String(val || '').toUpperCase();
+  return t === 'DEX' ? 'DEX' : 'CEX';
+}
+
 function applyDefaults(payload) {
   const now = null;
   return {
     id: '',
     name: String(payload.name || 'New Account'),
     platform: String(payload.platform || 'Custom'),
-    type: String(payload.type || 'other'),
+    type: normalizeType(payload.type || 'CEX'),
     enabled: payload.enabled == null ? true : !!payload.enabled,
     priority: payload.priority == null ? 50 : Number(payload.priority),
     proxy: payload.proxy == null || payload.proxy === '' ? null : String(payload.proxy),
@@ -76,6 +81,7 @@ function applyDefaults(payload) {
 async function create(payload) {
   const st = await loadAccounts();
   const obj = applyDefaults(payload || {});
+  obj.type = normalizeType(obj.type);
   obj.id = nextId(st);
   st.items.push(obj);
   await saveAccountsAtomic(st);
@@ -91,7 +97,7 @@ async function update(id, patch) {
   const p = patch || {};
   if (p.name != null) merged.name = String(p.name);
   if (p.platform != null) merged.platform = String(p.platform);
-  if (p.type != null) merged.type = String(p.type);
+  if (p.type != null) merged.type = normalizeType(p.type);
   if (p.enabled != null) merged.enabled = !!p.enabled;
   if (p.priority != null) merged.priority = Number(p.priority);
   if (p.proxy !== undefined) merged.proxy = p.proxy === '' || p.proxy == null ? null : String(p.proxy);
@@ -154,4 +160,3 @@ module.exports = {
   pingUsage,
   health,
 };
-

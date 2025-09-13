@@ -6,10 +6,11 @@ Raspberry Pi web UI for HTX (Huobi) balances. Pulls private balances + public pr
 Quickstart
 ----------
 
-- `cp .env.example .env` and fill HTX keys (deprecated: see Accounts Registry below)
+- `cp .env.example .env` (set non‑secret runtime vars)
 - `npm i`
-- `npm start` (or `node src/server.js`)
+- `npm start`
 - Open `http://<pi-ip>:<PORT>` (default 8080)
+- Go to `/accounts.html` and add your HTX account (CEX) with API keys
 
 PWA (Installable App)
 ---------------------
@@ -25,7 +26,6 @@ Environment
 - `PORT` default 8080; `BIND_ADDR` default 0.0.0.0
 - `REF_FIAT` default USD; `PULL_INTERVAL_MS` default 60000
 - `MIN_USD_IGNORE` default 10 (ignore positions worth less than this USD)
-- `HTX_ACCESS_KEY`, `HTX_SECRET_KEY`, `HTX_ACCOUNT_ID` (deprecated; use Accounts Registry)
 - Optional: `DRY_RUN=1`, `NO_LISTEN=1`, `DEBUG=1`
 
 Files
@@ -51,15 +51,26 @@ Accounts Registry
 ```
 
 - Tip: protect locally with `chmod 600 data/accounts.json`.
-- Secrets never leave the server; `/api/accounts` is sanitized (no `secret_key`, masked `access_key`).
+- Secrets never leave the browser; `/api/accounts` is sanitized (no `secret_key`, masked `access_key`).
+- Dashboard and scheduler use per‑account HTX credentials from this registry.
 
-APIs
-----
+Accounts UI & API
+-----------------
+
+- UI: open `/accounts.html` to view and manage accounts (Add/Edit/Delete/Toggle).
+- API (read‑only sanitized payloads; no secrets returned):
+  - `GET /api/accounts` → `{ items: [...] }`
+  - `POST /api/accounts/:id/toggle` → `{ ok: true }`
+  - `POST /api/accounts/:id/status` → `{ ok: true }`
+  - `POST /api/accounts/:id/ping` → `{ ok: true }`
+
+Data APIs
+---------
 
 - `GET /api/health`
 - `GET /api/snapshot`
 - `GET /api/history?n=50`
- - `GET /api/lots` (cost basis lots)
+- `GET /api/lots` (cost basis lots)
 
 Scripts
 -------
@@ -71,8 +82,8 @@ Scripts
 Troubleshooting
 ---------------
 
-- Missing keys: set `HTX_ACCESS_KEY` and `HTX_SECRET_KEY` in `.env`.
-- No Spot account: ensure Spot wallet exists or set `HTX_ACCOUNT_ID`.
+- No balances: ensure at least one enabled CEX HTX account exists in `/accounts.html` with valid keys.
+- No Spot wallet in HTX: create a Spot account in HTX; balances fetch requires it.
 - Port/bind errors: change `PORT` or use `BIND_ADDR=127.0.0.1`.
 - Restricted env: `NO_LISTEN=1`; use scripts to validate.
 - Extra logs: `DEBUG=1` for per‑account balance merge details.

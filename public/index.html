@@ -64,10 +64,7 @@
     </style>
   </head>
   <body>
-    <div class="nav">
-      <a id="nav-dashboard" href="/">Dashboard</a>
-      <a id="nav-lots" href="/lots.html">Lots</a>
-    </div>
+    <div id="nav"></div>
     <header>
       <h1>HTX Pi Monitor</h1>
       <div class="totals">
@@ -113,6 +110,7 @@
 
     <!-- TradingView Lightweight Charts (Apache-2.0) served locally to satisfy CSP -->
     <script src="/vendor/lightweight-charts.standalone.production.js" defer></script>
+    <script src="/nav.js" defer></script>
     <script src="/app.js" defer></script>
     <script src="/sw-register.js" defer></script>
   </body>

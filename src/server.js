@@ -227,6 +227,59 @@ app.post('/api/accounts/:id/status', async (req, res) => {
   }
 });
 
+// Account assets (details, on-demand; sanitized; no secrets returned)
+app.get('/api/accounts/:id/assets', async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const raw = await Accounts.getRawById(id);
+    if (!raw) return res.status(404).json({ error: 'not_found' });
+
+    if (raw.type === 'cex' && String(raw.platform || '').toUpperCase() === 'HTX') {
+      // Use per-account HTX client to fetch merged balances
+      const { createHTXClient } = require('./htx');
+      try {
+        const client = createHTXClient({ accessKey: raw.access_key, secretKey: raw.secret_key, accountId: raw.account_id || '' });
+        const bal = await client.getBalances(); // {SYM: {free}}
+        const items = Object.entries(bal || {})
+          .map(([sym, v]) => ({ source: 'cex', platform: 'HTX', symbol: sym, qty: Number(v?.free || 0) }))
+          .filter(x => x.qty > 0);
+        return res.json({ items });
+      } catch (e) {
+        return res.json({ items: [], error: 'fetch_failed', message: e.message });
+      }
+    }
+
+    if (raw.type === 'dex' && String(raw.chain || '').toLowerCase() === 'tron') {
+      // Load allowlist config
+      const fs = require('fs');
+      const path = require('path');
+      let tokens = [
+        { symbol: 'USDT', contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
+        { symbol: 'USDC', contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8', decimals: 6 },
+      ];
+      try {
+        const file = path.join(process.cwd(), 'data', 'onchain_config.json');
+        if (fs.existsSync(file)) {
+          const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (cfg && cfg.tron && Array.isArray(cfg.tron.tokens)) tokens = cfg.tron.tokens;
+        }
+      } catch (_) {}
+      try {
+        const tron = require('./onchain/tron');
+        const pos = await tron.getBalances([raw.address], tokens);
+        const items = pos.map(p => ({ source: 'dex', chain: 'tron', symbol: p.symbol, qty: Number(p.qty || 0) })).filter(x => x.qty > 0);
+        return res.json({ items });
+      } catch (e) {
+        return res.json({ items: [], error: 'fetch_failed', message: e.message });
+      }
+    }
+
+    return res.json({ items: [] });
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');
   console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}`);

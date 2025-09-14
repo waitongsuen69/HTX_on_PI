@@ -69,7 +69,8 @@ function render() {
         <td>
           <div class="ops">
             <button title="Toggle" data-act="toggle" data-id="${a.id}">${a.enabled ? '⏻' : '⭘'}</button>
-            <button title="Edit" data-act="edit" data-id="${a.id}">✏️</button>
+            <button title="Details" data-act="details" data-id=\"${a.id}\">ℹ️</button>
+            <button title=\"Edit\" data-act=\"edit\" data-id="${a.id}">✏️</button>
             <button title="Delete" data-act="del" data-id="${a.id}">🗑️</button>
           </div>
         </td>
@@ -82,6 +83,7 @@ function render() {
       const id = e.currentTarget.getAttribute('data-id');
       const act = e.currentTarget.getAttribute('data-act');
       if (act === 'toggle') return onToggle(id);
+      if (act === 'details') return onDetails(id);
       if (act === 'edit') return onEdit(id);
       if (act === 'del') return onDelete(id);
     });
@@ -101,6 +103,40 @@ function openModal(title) {
   document.getElementById('modal').style.display = 'flex';
 }
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
+function openDetailModal(title) { document.getElementById('detailTitle').textContent = title || 'Account Details'; document.getElementById('detailModal').style.display = 'flex'; }
+function closeDetailModal() { document.getElementById('detailModal').style.display = 'none'; }
+
+function fmtQty(q) {
+  const n = Number(q || 0);
+  if (n === 0) return '0';
+  if (n >= 1000) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(4);
+  return n.toFixed(6);
+}
+
+async function onDetails(id) {
+  try {
+    const acc = state.items.find(x => x.id === id);
+    openDetailModal(acc ? `Details — ${acc.name}` : 'Account Details');
+    const tbody = document.getElementById('detailRows');
+    tbody.innerHTML = '<tr><td colspan="3" class="muted" style="padding:8px;">Loading…</td></tr>';
+    const res = await fetch(`/api/accounts/${id}/assets`);
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="3" class="muted" style="padding:8px;">Failed to load</td></tr>'; return; }
+    const json = await res.json();
+    if (json.error) {
+      tbody.innerHTML = `<tr><td colspan="3" class="muted" style="padding:8px;">${json.message || 'No data'}</td></tr>`;
+      return;
+    }
+    const rows = (json.items || []).map(it => {
+      const source = it.chain ? `On-chain · ${String(it.chain).toUpperCase()}` : (it.platform ? `CEX · ${it.platform}` : '');
+      return `<tr><td style=\"padding:6px 8px;\">${String(it.symbol || '').toUpperCase()}</td><td style=\"padding:6px 8px;\">${fmtQty(it.qty)}</td><td style=\"padding:6px 8px;\" class=\"muted\">${source}</td></tr>`;
+    }).join('');
+    tbody.innerHTML = rows || '<tr><td colspan="3" class="muted" style="padding:8px;">No assets</td></tr>';
+  } catch (_) {
+    const tbody = document.getElementById('detailRows');
+    tbody.innerHTML = '<tr><td colspan="3" class="muted" style="padding:8px;">Error</td></tr>';
+  }
+}
 
 function fillForm(a) {
   document.getElementById('fName').value = a?.name || '';
@@ -175,6 +211,7 @@ function bindUI() {
   document.getElementById('btnAdd').addEventListener('click', onAdd);
   document.getElementById('btnClose').addEventListener('click', closeModal);
   document.getElementById('btnSave').addEventListener('click', onSave);
+  document.getElementById('btnCloseDetails').addEventListener('click', closeDetailModal);
   document.querySelectorAll('thead th[data-sort]').forEach((th) => { th.addEventListener('click', () => setSort(th.getAttribute('data-sort'))); });
   const typeEl = document.getElementById('fType');
   if (typeEl) {

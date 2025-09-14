@@ -145,6 +145,28 @@
 
     <div id="toast" class="toast"></div>
 
+    <!-- Details modal -->
+    <div class="modal" id="detailModal">
+      <div class="panel">
+        <header>
+          <div id="detailTitle">Account Details</div>
+          <button id="btnCloseDetails" class="btn">Close</button>
+        </header>
+        <div class="body">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:6px 8px; color:#9bb1c9; font-size:12px;">Symbol</th>
+                <th style="text-align:left; padding:6px 8px; color:#9bb1c9; font-size:12px;">Quantity</th>
+                <th style="text-align:left; padding:6px 8px; color:#9bb1c9; font-size:12px;">Source</th>
+              </tr>
+            </thead>
+            <tbody id="detailRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <script src="/nav.js"></script>
     <script type="module" src="/accounts.js"></script>
   </body>

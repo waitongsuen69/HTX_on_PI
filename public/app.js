@@ -62,6 +62,7 @@ async function load(kind) {
     dayEl.className = s.total_change_24h_pct >= 0 ? 'green' : 'red';
     renderPositions(s.positions || [], Number(s.total_value_usd || 0));
     renderAllocation(s.positions || [], Number(s.total_value_usd || 0));
+    renderPlatformAllocation(s.account_allocation || [], Number(s.total_value_usd || 0));
     if (kind) markRefreshed(kind);
   } catch (e) {
     console.error(e);
@@ -183,6 +184,59 @@ function renderAllocation(ps, totalWorth) {
   }
 }
 
+function renderPlatformAllocation(items, totalWorth) {
+  const bar = document.getElementById('platformBar');
+  const labels = document.getElementById('platformLabels');
+  const cexLbl = document.getElementById('platformCexLabel');
+  const dexLbl = document.getElementById('platformDexLabel');
+  if (!bar || !labels || !cexLbl || !dexLbl) return;
+  bar.innerHTML = '';
+  const list = Array.isArray(items) ? items.filter(x => (x && Number(x.value || 0) > 0)) : [];
+  const pvTotal = list.reduce((a, x) => a + Number(x.value || 0), 0);
+  if (pvTotal <= 0) { cexLbl.textContent = 'CEX — 0%'; dexLbl.textContent = 'DEX — 0%'; return; }
+  const cexAccounts = list.filter(x => String(x.group || '').toUpperCase() === 'CEX');
+  const dexAccounts = list.filter(x => String(x.group || '').toUpperCase() === 'DEX');
+  const cexVal = cexAccounts.reduce((a,x)=>a+Number(x.value||0),0);
+  const dexVal = dexAccounts.reduce((a,x)=>a+Number(x.value||0),0);
+  const cexPct = pvTotal > 0 ? (cexVal / pvTotal * 100) : 0;
+  const dexPct = 100 - cexPct;
+  // Palettes
+  const CEX_COLORS = ['#4374e0', '#86bcf0', '#2a6fd1'];
+  const DEX_COLORS = ['#e2431e', '#f28e2b', '#e15759'];
+  // CEX accounts (left)
+  cexAccounts
+    .map(a => ({ ...a, pct: pvTotal > 0 ? (Number(a.value||0)/pvTotal*100) : 0 }))
+    .filter(a => a.pct > 0)
+    .sort((a,b)=>a.pct-b.pct)
+    .forEach((a,i)=>{
+      const seg = document.createElement('div');
+      seg.className = 'alloc-seg';
+      seg.style.width = `${a.pct}%`;
+      seg.style.minWidth = '1px';
+      seg.style.background = CEX_COLORS[i % CEX_COLORS.length];
+      seg.style.boxShadow = 'inset -1px 0 0 rgba(0,0,0,0.35)';
+      attachTooltip(seg, { title: a.name || 'CEX', value: fmtNum(a.value, 2), weight: fmtNum(a.pct, 2) + '%' });
+      bar.appendChild(seg);
+    });
+  // DEX accounts (right)
+  dexAccounts
+    .map(a => ({ ...a, pct: pvTotal > 0 ? (Number(a.value||0)/pvTotal*100) : 0 }))
+    .filter(a => a.pct > 0)
+    .sort((a,b)=>a.pct-b.pct)
+    .forEach((a,i)=>{
+      const seg = document.createElement('div');
+      seg.className = 'alloc-seg';
+      seg.style.width = `${a.pct}%`;
+      seg.style.minWidth = '1px';
+      seg.style.background = DEX_COLORS[i % DEX_COLORS.length];
+      seg.style.boxShadow = 'inset -1px 0 0 rgba(0,0,0,0.35)';
+      attachTooltip(seg, { title: a.name || 'DEX', value: fmtNum(a.value, 2), weight: fmtNum(a.pct, 2) + '%' });
+      bar.appendChild(seg);
+    });
+  cexLbl.textContent = `CEX — ${fmtNum(cexPct, 2)}%`;
+  dexLbl.textContent = `DEX — ${fmtNum(dexPct, 2)}%`;
+}
+
 function getTooltip() {
   let el = document.getElementById('tooltip');
   if (!el) {
@@ -215,12 +269,12 @@ function hideTooltip() {
 }
 
 function attachTooltip(seg, data) {
-  const html = `
-    <div style="font-weight:600; margin-bottom:4px;">${data.title}</div>
-    <div>Qty: ${data.qty}</div>
-    <div>Value: ${data.value}</div>
-    <div>Weight: ${data.weight}</div>
-  `;
+  const parts = [];
+  parts.push(`<div style=\"font-weight:600; margin-bottom:4px;\">${data.title}</div>`);
+  if (data.qty != null) parts.push(`<div>Qty: ${data.qty}</div>`);
+  if (data.value != null) parts.push(`<div>Value: ${data.value}</div>`);
+  if (data.weight != null) parts.push(`<div>Weight: ${data.weight}</div>`);
+  const html = parts.join('');
   seg.addEventListener('mouseenter', (e) => showTooltip(html, e.clientX, e.clientY));
   seg.addEventListener('mousemove', (e) => showTooltip(html, e.clientX, e.clientY));
   seg.addEventListener('mouseleave', hideTooltip);

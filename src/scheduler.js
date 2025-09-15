@@ -24,11 +24,18 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
       const lotsState = loadLots();
       // balances merged across enabled accounts
       let balances = {};
+      // track per-platform symbol balances to compute platform allocation later
+      const platformBySym = { HTX: {}, TRON: {}, CARDANO: {} };
+      // id -> display name
+      const nameById = new Map();
+      // track per-account symbol balances to compute account allocation
+      const accSym = new Map(); // id -> { name, type: 'CEX'|'DEX', symQty: {SYM:qty} }
       try {
         const items = await Accounts.listSanitized(); // sanitized ok for routing; CEX secrets not needed here
         const raws = await Promise.all(items.map(async (it) => ({ it, raw: await Accounts.getRawById(it.id) })));
         for (const { it, raw } of raws) {
           if (!raw || !raw.enabled) continue;
+          try { if (raw && raw.id) nameById.set(raw.id, raw.name || it.name || raw.id); } catch(_) {}
           if (raw.type === 'cex' && String(raw.platform).toUpperCase() === 'HTX') {
             try {
               const client = createHTXClient({ accessKey: raw.access_key, secretKey: raw.secret_key, accountId: raw.account_id || '' });
@@ -37,6 +44,14 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
               for (const [sym, v] of Object.entries(bal || {})) {
                 if (!balances[sym]) balances[sym] = { free: 0 };
                 balances[sym].free += Number(v.free || 0);
+                // platform: HTX
+                const u = String(sym || '').toUpperCase();
+                if (!platformBySym.HTX[u]) platformBySym.HTX[u] = 0;
+                platformBySym.HTX[u] += Number(v.free || 0);
+                // account breakdown (CEX)
+                if (!accSym.has(raw.id)) accSym.set(raw.id, { name: nameById.get(raw.id) || raw.name || it.name || raw.id, type: 'CEX', symQty: {} });
+                const acc = accSym.get(raw.id);
+                acc.symQty[u] = (acc.symQty[u] || 0) + Number(v.free || 0);
               }
               await Accounts.pingUsage(raw.id, { callsDelta: 1 });
               await Accounts.health(raw.id, 'ok');
@@ -70,6 +85,15 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
             balances[sym].free += Number(p.qty || 0);
             // mark account ok
             if (p.account_id) await Accounts.health(p.account_id, 'ok');
+            // platform: TRON
+            if (!platformBySym.TRON[sym]) platformBySym.TRON[sym] = 0;
+            platformBySym.TRON[sym] += Number(p.qty || 0);
+            // account breakdown (DEX)
+            if (p.account_id) {
+              if (!accSym.has(p.account_id)) accSym.set(p.account_id, { name: nameById.get(p.account_id) || String(p.account_id), type: 'DEX', symQty: {} });
+              const acc = accSym.get(p.account_id);
+              acc.symQty[sym] = (acc.symQty[sym] || 0) + Number(p.qty || 0);
+            }
           }
         }
         backoffOnchain = 0;
@@ -111,6 +135,15 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
               if (p.account_id) await Accounts.health(p.account_id, 'ok');
               // Ensure native tokens get included even if unpriced
               if (p.unpriced) alwaysInclude.add(sym);
+              // platform: CARDANO
+              if (!platformBySym.CARDANO[sym]) platformBySym.CARDANO[sym] = 0;
+              platformBySym.CARDANO[sym] += Number(p.qty || 0);
+              // account breakdown (DEX)
+              if (p.account_id) {
+                if (!accSym.has(p.account_id)) accSym.set(p.account_id, { name: nameById.get(p.account_id) || String(p.account_id), type: 'DEX', symQty: {} });
+                const acc = accSym.get(p.account_id);
+                acc.symQty[sym] = (acc.symQty[sym] || 0) + Number(p.qty || 0);
+              }
             }
           }
         }
@@ -132,6 +165,43 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
 
       const resolvedMin = typeof getMinUsdIgnore === 'function' ? (Number(await getMinUsdIgnore()) || minUsdIgnore) : minUsdIgnore;
       const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore: resolvedMin, alwaysIncludeSymbols: Array.from(alwaysInclude) });
+      // Compute platform allocation (value-weighted) from per-platform symbol balances
+      const platformValues = { HTX: 0, TRON: 0, CARDANO: 0 };
+      const symPrice = (s) => { const p = prices[s]; return p && p.price != null ? Number(p.price) : null; };
+      for (const [sym, qty] of Object.entries(platformBySym.HTX)) {
+        const pr = symPrice(sym);
+        if (pr != null) platformValues.HTX += Number(qty || 0) * pr;
+      }
+      for (const [sym, qty] of Object.entries(platformBySym.TRON)) {
+        const pr = symPrice(sym);
+        if (pr != null) platformValues.TRON += Number(qty || 0) * pr;
+      }
+      for (const [sym, qty] of Object.entries(platformBySym.CARDANO)) {
+        const pr = symPrice(sym);
+        if (pr != null) platformValues.CARDANO += Number(qty || 0) * pr;
+      }
+      const pvTotal = platformValues.HTX + platformValues.TRON + platformValues.CARDANO;
+      const toPct = (v) => pvTotal > 0 ? (v / pvTotal) * 100 : 0;
+      snapshot.platform_allocation = [
+        { name: 'HTX', value: platformValues.HTX, pct: toPct(platformValues.HTX) },
+        { name: 'TRON', value: platformValues.TRON, pct: toPct(platformValues.TRON) },
+        { name: 'Cardano', value: platformValues.CARDANO, pct: toPct(platformValues.CARDANO) },
+      ];
+      // Compute account allocation (value-weighted)
+      const accList = [];
+      let accTotal = 0;
+      for (const [id, info] of accSym.entries()) {
+        let val = 0;
+        for (const [sym, qty] of Object.entries(info.symQty || {})) {
+          const pr = symPrice(sym);
+          if (pr != null) val += Number(qty || 0) * pr;
+        }
+        if (val > 0) {
+          accList.push({ id, name: info.name || id, group: info.type === 'CEX' ? 'CEX' : 'DEX', value: val });
+          accTotal += val;
+        }
+      }
+      snapshot.account_allocation = accList.map(x => ({ ...x, pct: accTotal > 0 ? (x.value / accTotal) * 100 : 0 }));
       const state = loadState();
       addSnapshot(state, snapshot);
       saveStateAtomic(state);

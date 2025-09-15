@@ -2,12 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>HTX Pi Monitor</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f172a">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
+      html, body { -webkit-text-size-adjust: 100%; }
+      /* Improve tap targets on mobile */
+      button, select, input { min-height: 44px; font-size: 16px; }
+      a, button, .card { -webkit-tap-highlight-color: transparent; }
       body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b0f14; color: #e6eef7; }
       .nav { display:flex; gap:8px; align-items:center; padding:8px 12px; background:#0d141d; border-bottom:1px solid #1a2330; position:sticky; top:0; z-index:10; }
       .nav a { color:#c9d7ee; text-decoration:none; padding:6px 10px; border-radius:8px; border:1px solid transparent; }
@@ -17,7 +21,7 @@
       .totals { display: flex; gap: 12px; font-size: 13px; }
       .green { color: #16c784; } .red { color: #ea3943; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; padding: 10px; }
-      .card { background: #0f1722; border: 1px solid #1a2330; border-radius: 10px; padding: 10px; }
+      .card { background: #0f1722; border: 1px solid #1a2330; border-radius: 10px; padding: 10px; cursor: pointer; }
       .card.rise { background: linear-gradient(180deg, rgba(22,199,132,0.28), rgba(22,199,132,0) 60%), #0f1722; border-color: #1f513b; }
       .card.fall { background: linear-gradient(180deg, rgba(234,57,67,0.28), rgba(234,57,67,0) 60%), #0f1722; border-color: #5a2a2f; }
       .card.flat { background: linear-gradient(180deg, rgba(138,160,182,0.22), rgba(138,160,182,0) 60%), #0f1722; border-color: #2a3646; }

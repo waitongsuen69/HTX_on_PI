@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+> Important: Never commit or push without explicit maintainer permission. Before any commit or push, perform a KISS check (Keep It Simple and Small) to ensure the change is minimal, focused, and necessary.
+
 ## Project Structure & Module Organization
 - `src/`: server and core modules — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
 - `public/`: static client served by Express — `index.html`, `app.js`, icons, PWA assets.
@@ -33,6 +35,15 @@
 - Commits: concise, imperative mood; include scope when helpful (e.g., `server: handle NO_LISTEN`).
 - PRs: include summary, rationale, and testing steps; add screenshots for UI changes.
 - Link related issues; keep PRs focused and incremental.
+
+## Workflow & Permissions
+- Do not commit or push without owner approval; request review first.
+- KISS law check before commit/push:
+  - Keep changes minimal and focused on one objective.
+  - Avoid drive‑by refactors, renames, or unrelated formatting.
+  - Prefer simplest working solution over complex abstractions.
+  - Ensure no secrets or generated files are added.
+  - Update docs only where impacted; include brief testing notes.
 
 ## Security & Configuration Tips
 - Never commit `.env` or secrets; ensure `.gitignore` covers sensitive/generated files.

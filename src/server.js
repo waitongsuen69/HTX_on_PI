@@ -176,7 +176,8 @@ app.patch('/api/accounts/:id', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'not_found' });
     res.json({ item: Accounts.sanitizeAccount(item) });
   } catch (e) {
-    res.status(500).json({ error: 'server_error', message: e.message });
+    const code = e && e.message === 'invalid_account' ? 400 : 500;
+    res.status(code).json({ error: e.message || 'server_error' });
   }
 });
 

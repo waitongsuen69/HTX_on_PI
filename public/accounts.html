@@ -84,19 +84,7 @@
         </header>
         <div class="body">
           <div class="form">
-            <label>
-              <span>Name</span>
-              <input id="fName" />
-            </label>
-            <label>
-              <span>Platform</span>
-              <select id="fPlatform">
-                <option>HTX</option>
-                <option>TRON</option>
-                <option>EVM</option>
-                <option>Custom</option>
-              </select>
-            </label>
+            <!-- Row 1: Type, Platform/Chain -->
             <label>
               <span>Type</span>
               <select id="fType">
@@ -104,37 +92,46 @@
                 <option>DEX</option>
               </select>
             </label>
-            <div id="cexFields" class="full" style="display:none;">
-              <div class="form" style="grid-template-columns: 1fr 1fr;">
-                <label>
-                  <span>Access Key</span>
-                  <input id="fAccessKey" placeholder="HTX API key" />
-                </label>
-                <label>
-                  <span>Secret Key</span>
-                  <input id="fSecretKey" placeholder="HTX API secret" />
-                </label>
-              </div>
-            </div>
-            <div id="dexFields" class="full" style="display:none;">
-              <div class="form" style="grid-template-columns: 1fr 1fr;">
-                <label>
-                  <span>Chain</span>
-                  <select id="fChain">
-                    <option>tron</option>
-                    <option>ethereum</option>
-                    <option>arbitrum</option>
-                    <option>polygon</option>
-                    <option>custom</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Address</span>
-                  <input id="fAddress" placeholder="0x... or T..." />
-                </label>
-              </div>
-            </div>
-            
+            <label id="platformRow">
+              <span>Platform</span>
+              <select id="fPlatform">
+                <option value="HTX">HTX</option>
+                <option value="TRON" disabled>TRON (not supported)</option>
+                <option value="EVM" disabled>EVM (not supported)</option>
+                <option value="Custom" disabled>Custom (not supported)</option>
+              </select>
+            </label>
+            <label id="chainRow" style="display:none;">
+              <span>Chain</span>
+              <select id="fChain">
+                <option value="tron">tron</option>
+                <option value="ethereum" disabled>ethereum (not supported)</option>
+                <option value="arbitrum" disabled>arbitrum (not supported)</option>
+                <option value="polygon" disabled>polygon (not supported)</option>
+                <option value="custom" disabled>custom (not supported)</option>
+              </select>
+            </label>
+
+            <!-- Row 2: Name -->
+            <label class="full">
+              <span>Name</span>
+              <input id="fName" />
+            </label>
+
+            <!-- Row 3: Access/Secret (CEX) or Address (DEX) -->
+            <label id="akRow">
+              <span>Access Key</span>
+              <input id="fAccessKey" placeholder="HTX API key" />
+            </label>
+            <label id="skRow">
+              <span>Secret Key</span>
+              <input id="fSecretKey" placeholder="HTX API secret" />
+            </label>
+
+            <label id="addressRow" class="full" style="display:none;">
+              <span>Address</span>
+              <input id="fAddress" placeholder="0x... or T..." />
+            </label>
           </div>
         </div>
         <div class="footer">

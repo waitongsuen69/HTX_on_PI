@@ -2,17 +2,17 @@
 
 ## Project Structure & Module Organization
 - `src/`: server and core modules — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
-- `public/`: static client (served by Express) — `index.html`, `app.js`, assets.
+- `public/`: static client served by Express — `index.html`, `app.js`, assets.
 - `data/`: runtime JSON written atomically; do not edit while the server runs.
-- `.env.example`: template for required configuration; copy to `.env` locally.
+- `.env.example`: template for required config; copy to `.env` locally.
 
 ## Build, Test, and Development Commands
 - `npm i`: install dependencies.
 - `npm start`: start Express server (`src/server.js`).
-- `npm run dev`: start with auto‑reload via nodemon.
+- `npm run dev`: start with auto‑reload via `nodemon`.
 - `DRY_RUN=1 npm start`: seed a sample snapshot and skip HTX calls.
 - `NO_LISTEN=1 node src/server.js`: run without opening a port.
-- Smoke checks (replace with your `PORT`):
+- Smoke checks (replace `$PORT`):
   - `curl http://localhost:$PORT/api/health`
   - `curl http://localhost:$PORT/api/snapshot`
   - `curl 'http://localhost:$PORT/api/history?n=10'`
@@ -22,7 +22,7 @@
 - Style: 2‑space indentation; include semicolons; single quotes for strings.
 - Filenames: lowercase with dashes or plain words (e.g., `server.js`, `calc.js`).
 - Structure: keep pure logic in helpers like `calc.js`; small, composable modules in `src/`.
-- Config: use `dotenv`; document new vars in `.env.example`.
+- Config: load via `dotenv`; document new vars in `.env.example`.
 
 ## Testing Guidelines
 - No formal test suite yet. Prefer `DRY_RUN` and curl smoke checks during development.
@@ -38,7 +38,10 @@
 ## Security & Configuration Tips
 - Never commit `.env` or secrets; ensure `.gitignore` covers sensitive/generated files.
 - Do not edit files in `data/` while the server runs; writes are atomic.
+- CSP blocks inline scripts; keep service worker registration in separate files.
 
 ## Architecture & PWA Notes
-- Express serves the static UI and JSON APIs. Scheduler pulls balances/prices via `htx.js`, computes snapshots with `calc.js`, and persists state with `state.js`.
-- PWA: `public/manifest.json`, icons (`public/icon-192.png`, `public/icon-512.png`), and service worker (`public/service-worker.js`) registered via `public/sw-register.js`. CSP blocks inline scripts; keep registration in separate files.
+- Express serves the static UI and JSON APIs.
+- Scheduler pulls balances/prices via `src/htx.js`, computes snapshots with `src/calc.js`, and persists state with `src/state.js`.
+- PWA: `public/manifest.json`, icons (`public/icon-192.png`, `public/icon-512.png`), and service worker (`public/service-worker.js`) registered via `public/sw-register.js`.
+

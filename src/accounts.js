@@ -71,7 +71,7 @@ function normalizeAccount(a) {
   if (!a) return null;
   const base = {
     id: String(a.id || '').padStart(6, '0'),
-    name: String(a.name || 'Account'),
+    name: String(a.name || 'Account').trim(),
     type: normalizeType(a.type),
     enabled: a.enabled == null ? true : !!a.enabled,
     today: { calls: Number((a.today && a.today.calls) || 0) },
@@ -79,15 +79,19 @@ function normalizeAccount(a) {
     status: ['ok', 'warn', 'down'].includes(String(a.status || '').toLowerCase()) ? String(a.status).toLowerCase() : 'ok',
   };
   if (base.type === 'cex') {
-    const platform = String(a.platform || 'HTX');
+    // Normalize platform and enforce supported set (HTX only for now)
+    const platform = String(a.platform || 'HTX').toUpperCase();
     const access_key = a.access_key || '';
     const secret_key = a.secret_key || '';
     if (!platform || !access_key || !secret_key) return null; // invalid CEX
+    if (!['HTX'].includes(platform)) return null; // unsupported CEX platform
     return { ...base, platform, access_key, secret_key };
   } else {
-    const chain = String(a.chain || '');
+    // Normalize chain and enforce supported set (tron only for now)
+    const chain = String(a.chain || '').toLowerCase();
     const address = String(a.address || '');
     if (!chain || !address) return null; // invalid DEX
+    if (!['tron'].includes(chain)) return null; // unsupported DEX chain
     return { ...base, chain, address };
   }
 }
@@ -118,9 +122,12 @@ async function update(id, patch) {
   if (p.status != null) merged.status = String(p.status);
   if (typeof p.access_key === 'string' && p.access_key.trim() !== '') merged.access_key = String(p.access_key);
   if (typeof p.secret_key === 'string' && p.secret_key.trim() !== '') merged.secret_key = String(p.secret_key);
-  st.items[idx] = merged;
+  // Re-validate against schema and drop irrelevant fields
+  const norm = normalizeAccount(merged);
+  if (!norm) throw new Error('invalid_account');
+  st.items[idx] = norm;
   await saveAccountsAtomic(st);
-  return merged;
+  return norm;
 }
 
 async function remove(id) {

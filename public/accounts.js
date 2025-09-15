@@ -148,8 +148,7 @@ function fillForm(a) {
   document.getElementById('fChain').value = a?.chain || 'tron';
   document.getElementById('fAddress').value = a?.address || '';
   const isDex = (t === 'DEX');
-  document.getElementById('cexFields').style.display = isDex ? 'none' : 'block';
-  document.getElementById('dexFields').style.display = isDex ? 'block' : 'none';
+  applyTypeUI(isDex ? 'DEX' : 'CEX');
 }
 
 function readForm() {
@@ -214,13 +213,22 @@ function bindUI() {
   document.getElementById('btnCloseDetails').addEventListener('click', closeDetailModal);
   document.querySelectorAll('thead th[data-sort]').forEach((th) => { th.addEventListener('click', () => setSort(th.getAttribute('data-sort'))); });
   const typeEl = document.getElementById('fType');
-  if (typeEl) {
-    typeEl.addEventListener('change', () => {
-      const isDex = typeEl.value === 'DEX';
-      document.getElementById('cexFields').style.display = isDex ? 'none' : 'block';
-      document.getElementById('dexFields').style.display = isDex ? 'block' : 'none';
-    });
-  }
+  if (typeEl) typeEl.addEventListener('change', () => applyTypeUI(typeEl.value));
+}
+
+function setVisible(id, show) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = show ? '' : 'none';
+}
+
+function applyTypeUI(typeVal) {
+  const isDex = String(typeVal).toUpperCase() === 'DEX';
+  setVisible('platformRow', !isDex);
+  setVisible('chainRow', isDex);
+  setVisible('akRow', !isDex);
+  setVisible('skRow', !isDex);
+  setVisible('addressRow', isDex);
 }
 
 async function init() { bindUI(); await load(); render(); }

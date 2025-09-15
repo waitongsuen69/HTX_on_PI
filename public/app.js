@@ -14,6 +14,16 @@ let tvChart = null;
 let candleSeries = null;
 let resizeObs = null;
 const refreshBtn = document.getElementById('refresh');
+const baselineSwitch = document.getElementById('baselineSwitch');
+const TOGGLE_KEY = 'baselineMode';
+let baselineMode = (localStorage.getItem(TOGGLE_KEY) || 'close');
+
+function updateToggleUI() {
+  if (!baselineSwitch) return;
+  const on = baselineMode === 'vwap';
+  baselineSwitch.classList.toggle('on', on);
+  baselineSwitch.setAttribute('aria-checked', String(on));
+}
 const lastManualEl = document.getElementById('lastManual');
 const lastAutoEl = document.getElementById('lastAuto');
 
@@ -44,7 +54,7 @@ function markRefreshed(kind) {
 async function load(kind) {
   setLoading(true);
   try {
-    const r = await fetch('/api/snapshot', { cache: 'no-cache' });
+    const r = await fetch(`/api/snapshot?baselineMode=${encodeURIComponent(baselineMode)}`, { cache: 'no-cache' });
     if (!r.ok) throw new Error('No snapshot');
     const s = await r.json();
     totalEl.textContent = fmtNum(s.total_value_usd || 0, 2);
@@ -232,6 +242,15 @@ function attachTooltip(seg, data) {
 // Nav highlighting is handled by nav.js after it injects the toolbar
 
 refreshBtn.addEventListener('click', () => load('manual'));
+if (baselineSwitch) {
+  baselineSwitch.addEventListener('click', () => {
+    baselineMode = (baselineMode === 'close') ? 'vwap' : 'close';
+    localStorage.setItem(TOGGLE_KEY, baselineMode);
+    updateToggleUI();
+    load('manual');
+  });
+  updateToggleUI();
+}
 load('auto');
 setInterval(() => load('auto'), 30_000);
 

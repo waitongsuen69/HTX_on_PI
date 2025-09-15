@@ -56,9 +56,16 @@
       button { background:#1a2330; color:#e6eef7; border:1px solid #2a3a52; padding:6px 10px; border-radius:8px; position:relative; }
       button.loading { opacity: 0.8; pointer-events: none; }
       button.loading::after { content:""; position:absolute; right:10px; top:50%; width:14px; height:14px; margin-top:-7px; border:2px solid #e6eef7; border-top-color: transparent; border-radius:50%; animation: spin 1s linear infinite; }
+      .toggle.active { background:#13202e; border-color:#2a3a52; }
       @keyframes spin { to { transform: rotate(360deg); } }
-      .lasts { font-size: 11px; color:#8aa0b6; display:flex; gap:8px; align-items:baseline; }
+      .lasts { font-size: 11px; color:#8aa0b6; display:flex; flex-direction:column; align-items:flex-end; line-height: 1.2; }
       .warn { color:#ffcf5c; font-size:12px; }
+      /* Baseline mode switch (match Refresh button style) */
+      .switch { position: relative; width: 120px; height: 44px; background:#1a2330; color:#e6eef7; border:1px solid #2a3a52; border-radius:8px; cursor: pointer; user-select:none; display:flex; align-items:center; }
+      .switch .labels { position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:13px; color:#c9d7ee; pointer-events:none; }
+      .switch .thumb { position:absolute; top:3px; left:3px; width:56px; height:38px; background:#24354a; border:1px solid #2a3a52; border-radius:6px; transition:left 0.15s ease-in-out; }
+      .switch.on .thumb { left:61px; }
+      .actions { display:flex; gap:8px; align-items:center; }
       /* modal */
       .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index: 20; }
       .modal .panel { width: min(96vw, 860px); background:#0f1722; border:1px solid #1a2330; border-radius:10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -77,10 +84,16 @@
       </div>
       <div style="flex:1"></div>
       <div class="lasts">
-        <div>Manual: <span id="lastManual">—</span></div>
         <div>Auto: <span id="lastAuto">—</span></div>
+        <div>Manual: <span id="lastManual">—</span></div>
       </div>
-      <button id="refresh">Refresh</button>
+      <div class="actions">
+        <button id="refresh">Refresh</button>
+        <div id="baselineSwitch" class="switch" role="switch" aria-checked="false" title="Baseline mode: Close/VWAP">
+          <div class="thumb"></div>
+          <div class="labels"><span>Close</span><span>VWAP</span></div>
+        </div>
+      </div>
     </header>
     <div class="alloc">
       <div id="allocBar" class="alloc-bar"></div>

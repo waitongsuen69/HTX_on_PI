@@ -11,6 +11,8 @@ const { createScheduler } = require('./scheduler');
 const { backfillHistoryIfNeeded, captureCurrentSnapshot } = require('./backfill');
 const Accounts = require('./accounts');
 const { computeChangesFromKlines } = require('./services/marketChange');
+const { computeBaselinePrice, pctChange } = require('./services/historicalPrice');
+const ExProvider = require('./services/exchangeProvider');
 
 // moved kline change computation to services/marketChange (keep server thin)
 
@@ -86,6 +88,10 @@ app.get('/api/snapshot', async (req, res) => {
 
   try {
     const symbols = (last.positions || []).map(p => p.symbol).filter(Boolean);
+    const baselineMode = String(req.query.baselineMode || 'close').toLowerCase() === 'vwap' ? 'vwap' : 'close';
+    // Fetch current prices once for all symbols
+    const nowPrices = await ExProvider.fetchCurrentPrices(symbols);
+    // Also compute daily changes via klines for 24h as before
     const changes = {};
     for (const base of symbols) {
       changes[base] = await computeChangesFromKlines(base);
@@ -93,8 +99,10 @@ app.get('/api/snapshot', async (req, res) => {
     // Fallback using history prices if any change is missing
     const hist = Array.isArray(state.history) ? state.history : [];
     const nowTs = last.time * 1000;
-    const t7d = nowTs - 7 * 24 * 60 * 60 * 1000;
-    const t30d = nowTs - 30 * 24 * 60 * 60 * 1000;
+    // Determine UTC days for 7d/30d ago (baseline day start)
+    const dayMs = 24 * 60 * 60 * 1000;
+    const t7d = nowTs - 7 * dayMs;
+    const t30d = nowTs - 30 * dayMs;
     function findRefPrice(sym, targetMs) {
       for (let i = hist.length - 1; i >= 0; i--) {
         const snap = hist[i];
@@ -108,20 +116,49 @@ app.get('/api/snapshot', async (req, res) => {
       return null;
     }
     const enriched = JSON.parse(JSON.stringify(last));
-    enriched.positions = (last.positions || []).map(p => {
+    // Compute baselines for symbols (7d/30d) using the selected mode
+    const baselineCache = new Map(); // key: base|tMs|mode
+    async function baseline(base, tMs) {
+      const key = `${base}|${tMs}|${baselineMode}`;
+      if (baselineCache.has(key)) return baselineCache.get(key);
+      const v = await computeBaselinePrice(base, tMs, baselineMode);
+      baselineCache.set(key, v);
+      return v;
+    }
+    const posOut = [];
+    let sumNow = 0;
+    let sum7 = 0;
+    let sum30 = 0;
+    for (const p of (last.positions || [])) {
       const { pnl_pct, unreconciled, day_pct, ...rest } = p;
-      let { change_1d_pct, change_7d_pct, change_30d_pct } = changes[p.symbol] || {};
+      const sym = p.symbol;
+      const nowPrice = Number(nowPrices[sym] || p.price || 0);
+      let { change_1d_pct } = changes[sym] || {};
       if (change_1d_pct == null && day_pct != null) change_1d_pct = day_pct;
-      if (change_7d_pct == null) {
-        const ref = findRefPrice(p.symbol, t7d);
-        if (ref && p.price > 0) change_7d_pct = (p.price / ref - 1) * 100;
-      }
-      if (change_30d_pct == null) {
-        const ref = findRefPrice(p.symbol, t30d);
-        if (ref && p.price > 0) change_30d_pct = (p.price / ref - 1) * 100;
-      }
-      return { ...rest, change_1d_pct, change_7d_pct, change_30d_pct };
-    });
+
+      // Baseline prices
+      let b7 = await baseline(sym, t7d);
+      let b30 = await baseline(sym, t30d);
+      // Fallback to history if missing
+      if (!(b7 > 0)) b7 = findRefPrice(sym, t7d);
+      if (!(b30 > 0)) b30 = findRefPrice(sym, t30d);
+      const change_7d_pct = pctChange(nowPrice, b7);
+      const change_30d_pct = pctChange(nowPrice, b30);
+
+      // Aggregate portfolio baselines using current quantities
+      const qty = Number(p.free || 0);
+      const worthNow = qty * nowPrice;
+      sumNow += worthNow;
+      if (b7 > 0) sum7 += qty * b7;
+      if (b30 > 0) sum30 += qty * b30;
+
+      posOut.push({ ...rest, price: nowPrice || rest.price, change_1d_pct, change_7d_pct, change_30d_pct });
+    }
+    enriched.positions = posOut;
+    // Portfolio level changes
+    enriched.total_change_7d_pct = pctChange(sumNow, sum7);
+    enriched.total_change_30d_pct = pctChange(sumNow, sum30);
+    enriched.baseline_mode = baselineMode;
     res.json(enriched);
   } catch (e) {
     res.json(last);

@@ -118,7 +118,7 @@
 
             <!-- Row 2: Name -->
             <label class="full">
-              <span>Name</span>
+              <span>Name (required)</span>
               <input id="fName" />
             </label>
 
@@ -138,8 +138,11 @@
             </label>
 
             <label id="tronKeyRow" class="full" style="display:none;">
-              <span>TRON API Key (shared)</span>
-              <input id="fTronApiKey" placeholder="TRON-PRO-API-KEY (shared across TRON DEX accounts)" />
+              <span>TRON API Key (required, shared)</span>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input id="fTronApiKey" placeholder="TRON-PRO-API-KEY (shared across TRON DEX accounts)" style="flex:1;" />
+                <a href="#" id="linkTronHelp" class="muted" style="white-space:nowrap;">how to get tron api key</a>
+              </div>
             </label>
           </div>
         </div>
@@ -169,6 +172,26 @@
             </thead>
             <tbody id="detailRows"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRON API key help modal -->
+    <div class="modal" id="tronHelpModal">
+      <div class="panel">
+        <header>
+          <div>How to get a TRON API key (TronGrid)</div>
+          <button id="btnCloseTronHelp" class="btn">Close</button>
+        </header>
+        <div class="body">
+          <ol style="margin:0; padding-left:18px; line-height:1.6;">
+            <li>Go to https://www.trongrid.io/ and sign in or create an account.</li>
+            <li>Open the Dashboard and create a new API key.</li>
+            <li>Copy the value shown as TRON-PRO-API-KEY.</li>
+            <li>Paste it into the “TRON API Key (required, shared)” field.</li>
+            <li>Optional: keep the default Full Node or add your own endpoint.</li>
+          </ol>
+          <p class="muted" style="margin-top:10px;">This key is shared by all TRON DEX addresses in this app.</p>
         </div>
       </div>
     </div>

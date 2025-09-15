@@ -107,6 +107,9 @@ function closeModal() { document.getElementById('modal').style.display = 'none';
 function openDetailModal(title) { document.getElementById('detailTitle').textContent = title || 'Account Details'; document.getElementById('detailModal').style.display = 'flex'; }
 function closeDetailModal() { document.getElementById('detailModal').style.display = 'none'; }
 
+function openTronHelp() { const m = document.getElementById('tronHelpModal'); if (m) m.style.display = 'flex'; }
+function closeTronHelp() { const m = document.getElementById('tronHelpModal'); if (m) m.style.display = 'none'; }
+
 function fmtQty(q) {
   const n = Number(q || 0);
   if (n === 0) return '0';
@@ -196,6 +199,7 @@ async function onSave() {
   // If TRON DEX, persist shared TRON API key first
   if (t === 'DEX' && payload.chain === 'tron') {
     const apiKey = (document.getElementById('fTronApiKey').value || '').trim();
+    if (!apiKey) { toast('TRON API key required'); return; }
     try {
       await fetch('/api/tron-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });
     } catch (_) { /* ignore */ }
@@ -231,6 +235,12 @@ function bindUI() {
   if (typeEl) typeEl.addEventListener('change', () => applyTypeUI(typeEl.value));
   const chainEl = document.getElementById('fChain');
   if (chainEl) chainEl.addEventListener('change', () => applyTypeUI(document.getElementById('fType').value));
+  const linkTronHelp = document.getElementById('linkTronHelp');
+  if (linkTronHelp) linkTronHelp.addEventListener('click', (e) => { e.preventDefault(); openTronHelp(); });
+  const btnCloseTronHelp = document.getElementById('btnCloseTronHelp');
+  if (btnCloseTronHelp) btnCloseTronHelp.addEventListener('click', closeTronHelp);
+  const tronHelpModal = document.getElementById('tronHelpModal');
+  if (tronHelpModal) tronHelpModal.addEventListener('click', (e) => { if (e.target === tronHelpModal) closeTronHelp(); });
 }
 
 function setVisible(id, show) {

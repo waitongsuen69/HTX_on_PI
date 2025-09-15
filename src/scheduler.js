@@ -16,18 +16,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
   let backoffPrices = 0;
   let backoffOnchain = 0;
 
-  // Load on-chain allowlist (tron tokens)
-  let onchainCfg = { tron: { tokens: [
-    { symbol: 'USDT', contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
-    { symbol: 'USDC', contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8', decimals: 6 },
-  ] } };
-  try {
-    const file = path.join(process.cwd(), 'data', 'onchain_config.json');
-    if (fs.existsSync(file)) {
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (raw && raw.tron && Array.isArray(raw.tron.tokens)) onchainCfg.tron.tokens = raw.tron.tokens;
-    }
-  } catch (_) {}
+  // On-chain allowlist removed: always read all assets from the chain.
 
   async function tickOnce() {
     try {
@@ -71,8 +60,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
         const tronAddrs = await Accounts.getTronAddresses();
         if (tronAddrs.length > 0) {
           const addresses = tronAddrs.map(x => x.address);
-          const allow = onchainCfg.tron.tokens || [];
-          const pos = await tron.getBalances(addresses, allow);
+          const pos = await tron.getBalances(addresses);
           // tag with account_id
           const byAddr = new Map(tronAddrs.map(x => [x.address, x.id]));
           for (const p of pos) {

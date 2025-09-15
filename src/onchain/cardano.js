@@ -68,29 +68,53 @@ async function getBalances(addresses) {
   for (const addr of addrs) {
     let utxos;
     try {
-      // reference exported function to ease testing via jest.spyOn
       utxos = await module.exports.getAddressUTxOs(addr);
     } catch (e) {
-      // Skip address on error
-      continue;
+      continue; // skip address on error
     }
-    const sums = {}; // symbol -> qty
+    // 1) Aggregate by unit (lovelace or policy+assetHex)
+    const totals = new Map(); // unit -> BigInt
     for (const u of (utxos || [])) {
       const amounts = Array.isArray(u.amount) ? u.amount : [];
       for (const a of amounts) {
-        const unit = a.unit;
-        const q = Number(a.quantity || 0);
-        const meta = parseAssetUnit(unit);
-        if (meta.kind === 'ada') {
-          addQty(sums, 'ADA', q / 1e6);
-        } else if (meta.kind === 'native') {
-          const sym = `cardano:${meta.policy}.${meta.assetHex}`;
-          addQty(sums, sym, q); // leave raw quantity; display as unpriced
-        }
+        const unit = String(a.unit || '');
+        const qtyStr = String(a.quantity || '0');
+        let cur = totals.get(unit) || 0n;
+        try { cur += BigInt(qtyStr); } catch (_) { /* fallback */ cur += BigInt(Number(qtyStr || 0)); }
+        totals.set(unit, cur);
       }
     }
-    for (const [sym, qty] of Object.entries(sums)) {
-      if (qty > 0) out.push({ source: 'dex', chain: 'cardano', address: addr, symbol: sym, qty: Number(qty) });
+
+    // 2) Resolve metadata for unique native units (concurrency-limited)
+    const units = Array.from(totals.keys()).filter(u => u !== 'lovelace');
+    const limit = pLimit(5);
+    const metaMap = new Map();
+    await Promise.all(units.map((u) => limit(async () => {
+      const m = await module.exports.getAssetMeta(u);
+      metaMap.set(u, m || null);
+    })));
+
+    // 3) Emit holdings for this address
+    for (const [unit, qtyBI] of totals) {
+      if (unit === 'lovelace') {
+        const qty = Number(qtyBI) / 1e6;
+        if (qty > 0) out.push({ source: 'dex', chain: 'cardano', address: addr, symbol: 'ADA', qty });
+        continue;
+      }
+      const policyId = unit.slice(0, 56);
+      const assetHex = unit.slice(56);
+      const meta = metaMap.get(unit) || null;
+      const symCore = chooseSymbol(meta, policyId, assetHex);
+      const displaySymbol = `CARDANO:${symCore}`;
+      const dec = chooseDecimals(meta);
+      let qty;
+      if (dec == null) {
+        qty = Number(qtyBI);
+      } else {
+        const denom = Math.pow(10, dec);
+        qty = Number(qtyBI) / denom;
+      }
+      if (qty > 0) out.push({ source: 'dex', chain: 'cardano', address: addr, symbol: displaySymbol, qty });
     }
   }
   return out;
@@ -100,5 +124,65 @@ module.exports = {
   getStakeAddresses,
   getAddressUTxOs,
   getBalances,
+  getAssetMeta,
   _parseAssetUnit: parseAssetUnit,
 };
+
+// -------------------- Metadata helpers and cache --------------------
+
+const assetMetaCache = new Map(); // unit -> { t, v }
+const ASSET_META_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+async function getAssetMeta(unit) {
+  const now = Date.now();
+  const hit = assetMetaCache.get(unit);
+  if (hit && (now - hit.t) < ASSET_META_TTL_MS) return hit.v;
+  try {
+    const cli = await bf();
+    const res = await cli.get(`/assets/${encodeURIComponent(unit)}`);
+    const meta = res && res.data ? res.data : null;
+    assetMetaCache.set(unit, { t: now, v: meta });
+    return meta;
+  } catch (e) {
+    // cache null for TTL window to avoid hammering
+    assetMetaCache.set(unit, { t: now, v: null });
+    return null;
+  }
+}
+
+function hexToUtf8(hex) {
+  try {
+    if (!hex) return '';
+    const buf = Buffer.from(hex, 'hex');
+    const s = buf.toString('utf8');
+    if (/[^\x20-\x7E]/.test(s)) return null; // non-printables
+    return s;
+  } catch (_) { return null; }
+}
+
+function chooseDecimals(meta) {
+  const d = meta && meta.metadata && meta.metadata.decimals;
+  return (typeof d === 'number' && d >= 0 && d <= 18) ? d : null;
+}
+
+function chooseSymbol(meta, policyId, assetHex) {
+  const ticker = meta && meta.metadata && typeof meta.metadata.ticker === 'string' ? meta.metadata.ticker.trim() : '';
+  const name = meta && meta.metadata && meta.metadata.name != null ? String(meta.metadata.name).trim() : '';
+  const decoded = hexToUtf8(assetHex) || assetHex;
+  if (ticker) return ticker;
+  if (name) return name;
+  if (decoded) return decoded;
+  return `${policyId}.${assetHex}`;
+}
+
+function pLimit(n) {
+  let active = 0;
+  const queue = [];
+  const next = () => {
+    if (active >= n || queue.length === 0) return;
+    active++;
+    const { fn, resolve, reject } = queue.shift();
+    Promise.resolve().then(fn).then((v) => { resolve(v); }).catch(reject).finally(() => { active--; next(); });
+  };
+  return (fn) => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); next(); });
+}

@@ -69,6 +69,25 @@ async function setTronConfig({ api_key, fullnode } = {}) {
   return getTronConfig();
 }
 
+async function getAppConfig() {
+  const st = await loadAccounts();
+  const meta = st.meta || {};
+  let min = Number(meta.min_usd_ignore || 0);
+  if (!(min > 0)) min = 10;
+  return { min_usd_ignore: min };
+}
+
+async function setAppConfig({ min_usd_ignore } = {}) {
+  const st = await loadAccounts();
+  if (!st.meta) st.meta = { last_id: st.meta && st.meta.last_id ? st.meta.last_id : 0 };
+  if (min_usd_ignore != null) {
+    const v = Number(min_usd_ignore);
+    st.meta.min_usd_ignore = Number.isFinite(v) && v >= 0 ? v : 10;
+  }
+  await saveAccountsAtomic(st);
+  return getAppConfig();
+}
+
 async function list() {
   const st = await loadAccounts();
   return st.items || [];
@@ -245,4 +264,6 @@ module.exports = {
   getTronAddresses,
   getTronConfig,
   setTronConfig,
+  getAppConfig,
+  setAppConfig,
 };

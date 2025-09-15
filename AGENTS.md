@@ -1,6 +1,6 @@
-# Repository Guidelines
-
 > [DO NOT REMOVE] Important: Never commit or push without explicit maintainer permission. Before any commit or push, perform a KISS check (Keep It Simple and Small) to ensure the change is minimal, focused, and necessary.
+
+# Repository Guidelines
 
 ## Project Structure & Module Organization
 - `src/`: server and core modules — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.

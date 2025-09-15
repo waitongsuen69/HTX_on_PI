@@ -20,7 +20,6 @@ const PORT = Number(process.env.PORT || 8080);
 const BIND_ADDR = process.env.BIND_ADDR || '0.0.0.0';
 const REF_FIAT = process.env.REF_FIAT || 'USD';
 const INTERVAL_MS = Number(process.env.PULL_INTERVAL_MS || 60_000);
-const MIN_USD_IGNORE = Number(process.env.MIN_USD_IGNORE || 10);
 
 const app = express();
 app.disable('x-powered-by');
@@ -37,7 +36,9 @@ const publicDir = path.join(process.cwd(), 'public');
 app.use(express.static(publicDir));
 
 // APIs
-const scheduler = createScheduler({ intervalMs: INTERVAL_MS, logger: console, refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE });
+const scheduler = createScheduler({ intervalMs: INTERVAL_MS, logger: console, refFiat: REF_FIAT, getMinUsdIgnore: async () => {
+  try { const cfg = await Accounts.getAppConfig(); return cfg.min_usd_ignore; } catch (_) { return 10; }
+} });
 
 // Optional flags
 // - DRY_RUN: seed a synthetic snapshot and skip scheduler
@@ -69,8 +70,9 @@ if (DRY_RUN) {
   (async () => {
     try {
       const days = Number(process.env.BACKFILL_DAYS || 180);
-      await backfillHistoryIfNeeded({ days, refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE, logger: console });
-      await captureCurrentSnapshot({ refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE, logger: console });
+      const appCfg = await Accounts.getAppConfig();
+      await backfillHistoryIfNeeded({ days, refFiat: REF_FIAT, minUsdIgnore: appCfg.min_usd_ignore, logger: console });
+      await captureCurrentSnapshot({ refFiat: REF_FIAT, minUsdIgnore: appCfg.min_usd_ignore, logger: console });
     } catch (e) { console.warn('boot init error:', e.message); }
   })();
 }
@@ -286,6 +288,28 @@ app.patch('/api/tron-config', async (req, res) => {
   }
 });
 
+// App config (min_usd_ignore)
+app.get('/api/app-config', async (req, res) => {
+  try {
+    const cfg = await Accounts.getAppConfig();
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.patch('/api/app-config', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const min = Number(body.min_usd_ignore);
+    if (!Number.isFinite(min) || min < 0) return res.status(400).json({ error: 'invalid_min_usd_ignore' });
+    const cfg = await Accounts.setAppConfig({ min_usd_ignore: min });
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
 // Account assets (details, on-demand; sanitized; no secrets returned)
 app.get('/api/accounts/:id/assets', async (req, res) => {
   try {
@@ -335,7 +359,7 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
 
 if (NO_LISTEN) {
   console.log('NO_LISTEN active: skipping HTTP listen.');
-  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}`);
+  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}`);
   // In NO_LISTEN mode, avoid starting the scheduler (which may require network).
   process.exit(0);
 }
@@ -343,7 +367,7 @@ if (NO_LISTEN) {
 const server = app.listen(PORT, BIND_ADDR, () => {
   // For simplicity, display localhost URL for users even if binding to a different interface.
   console.log(`HTX Pi Monitor listening on http://localhost:${PORT}`);
-  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}; MIN_USD_IGNORE=${MIN_USD_IGNORE}`);
+  console.log(`REF_FIAT=${REF_FIAT}; PULL_INTERVAL_MS=${INTERVAL_MS}`);
   if (!DRY_RUN) scheduler.loop();
   if (AUTO_OPEN && !NO_LISTEN) {
     const url = `http://localhost:${PORT}`;

@@ -9,7 +9,7 @@ const tron = require('./onchain/tron');
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD', minUsdIgnore = 10 } = {}) {
+function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD', minUsdIgnore = 10, getMinUsdIgnore = null } = {}) {
   let running = false;
   let lastSnapshotAt = 0;
   let backoffBalances = 0;
@@ -88,7 +88,8 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
         logger.warn(`[scheduler] prices error: ${e.message}`);
       }
 
-      const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore, alwaysIncludeSymbols: [] });
+      const resolvedMin = typeof getMinUsdIgnore === 'function' ? (Number(await getMinUsdIgnore()) || minUsdIgnore) : minUsdIgnore;
+      const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore: resolvedMin, alwaysIncludeSymbols: [] });
       const state = loadState();
       addSnapshot(state, snapshot);
       saveStateAtomic(state);

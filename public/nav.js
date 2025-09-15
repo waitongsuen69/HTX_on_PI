@@ -16,7 +16,7 @@
     container.className = 'nav';
     container.appendChild(createLink('nav-dashboard', '/', 'Dashboard'));
     container.appendChild(createLink('nav-lots', '/lots.html', 'Lots'));
-    container.appendChild(createLink('nav-settings', '/accounts.html', 'Settings'));
+    container.appendChild(createLink('nav-settings', '/settings.html', 'Settings'));
     mount.appendChild(container);
 
     // Highlight active
@@ -28,7 +28,7 @@
       } else if (path.includes('lots')) {
         const el = document.getElementById('nav-lots');
         if (el) el.classList.add('active');
-      } else if (path.includes('accounts')) {
+      } else if (path.includes('settings')) {
         const el = document.getElementById('nav-settings');
         if (el) el.classList.add('active');
       }

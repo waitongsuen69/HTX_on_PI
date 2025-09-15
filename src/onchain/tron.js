@@ -7,7 +7,7 @@ function createClient({ apiKey, fullHost } = {}) {
     throw new Error('tronweb_not_available');
   }
   const host = fullHost || process.env.TRON_FULLNODE || 'https://api.trongrid.io';
-  const key = apiKey || process.env.TRON_API_KEY || '';
+  const key = apiKey || '';
   const headers = key ? { 'TRON-PRO-API-KEY': key } : {};
   return new TronWebCtor({ fullHost: host, headers });
 }

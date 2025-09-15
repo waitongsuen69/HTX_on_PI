@@ -55,8 +55,8 @@ function nextId(state) {
 async function getTronConfig() {
   const st = await loadAccounts();
   const meta = st.meta || {};
-  const api_key = meta.tron_api_key || process.env.TRON_API_KEY || '';
-  const fullnode = meta.tron_fullnode || process.env.TRON_FULLNODE || 'https://api.trongrid.io';
+  const api_key = meta.tron_api_key || '';
+  const fullnode = meta.tron_fullnode || 'https://api.trongrid.io';
   return { api_key, fullnode };
 }
 

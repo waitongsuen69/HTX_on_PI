@@ -1,6 +1,4 @@
-const { getBalances: getCexBalances, getKlines } = require('./htx');
-const Accounts = require('./accounts');
-const tron = require('./onchain/tron');
+const { getBalances, getKlines } = require('./htx');
 const { loadLots } = require('./lots');
 const { loadState, addSnapshot, saveStateAtomic } = require('./state');
 const { computeSnapshot } = require('./calc');
@@ -21,7 +19,7 @@ async function backfillHistoryIfNeeded({ days = 180, refFiat = 'USD', minUsdIgno
   try {
     logger.log(`[backfill] history empty; backfilling last ${days} days...`);
     const lotsState = loadLots();
-    const balances = await collectAllBalances();
+    const balances = await getBalances();
     const symbols = Object.keys(balances || {});
     if (symbols.length === 0) {
       logger.warn('[backfill] no balances found; skipping backfill');
@@ -74,47 +72,12 @@ async function backfillHistoryIfNeeded({ days = 180, refFiat = 'USD', minUsdIgno
   }
 }
 
-const { getPrices, createHTXClient } = require('./htx');
-
-async function collectAllBalances() {
-  // Merge CEX (HTX) and DEX (TRON) balances same as scheduler
-  const items = await Accounts.listSanitized();
-  let balances = {};
-  // CEX
-  for (const it of items) {
-    try {
-      const raw = await Accounts.getRawById(it.id);
-      if (!raw || !raw.enabled) continue;
-      if (raw.type === 'cex' && String(raw.platform).toUpperCase() === 'HTX') {
-        const client = createHTXClient({ accessKey: raw.access_key, secretKey: raw.secret_key, accountId: raw.account_id || '' });
-        const bal = await client.getBalances();
-        for (const [sym, v] of Object.entries(bal || {})) {
-          if (!balances[sym]) balances[sym] = { free: 0 };
-          balances[sym].free += Number(v.free || 0);
-        }
-      }
-    } catch (_) { /* swallow to keep capturing */ }
-  }
-  // DEX (TRON)
-  try {
-    const tronAddrs = await Accounts.getTronAddresses();
-    if (tronAddrs.length > 0) {
-      const addresses = tronAddrs.map(x => x.address);
-      const pos = await tron.getBalances(addresses);
-      for (const p of pos) {
-        const sym = String(p.symbol || '').toUpperCase();
-        if (!balances[sym]) balances[sym] = { free: 0 };
-        balances[sym].free += Number(p.qty || 0);
-      }
-    }
-  } catch (_) { /* ignore dex errors in capture */ }
-  return balances;
-}
+const { getPrices } = require('./htx');
 
 async function captureCurrentSnapshot({ refFiat = 'USD', minUsdIgnore = 10, logger = console } = {}) {
   try {
     const lotsState = loadLots();
-    const balances = await collectAllBalances();
+    const balances = await getBalances();
     const symbols = Object.keys(balances || {});
     const prices = await getPrices(symbols);
     const snap = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore });

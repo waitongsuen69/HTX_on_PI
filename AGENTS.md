@@ -12,6 +12,7 @@
 - `npm i`: install dependencies.
 - `npm start`: start Express server (`src/server.js`).
 - `npm run dev`: start with auto‑reload via `nodemon`.
+- `npm test`: run Jest test suite.
 - `DRY_RUN=1 npm start`: seed a sample snapshot and skip HTX calls.
 - `NO_LISTEN=1 node src/server.js`: run background jobs only (no HTTP listener).
 - Smoke checks (replace `$PORT`):
@@ -26,9 +27,10 @@
 - Structure: keep pure logic in helpers like `calc.js`; compose small modules in `src/`.
 
 ## Testing Guidelines
-- No formal suite yet. Prefer `DRY_RUN=1` plus curl smoke checks during development.
-- If adding tests: use `supertest` for HTTP; place fixtures under `test/fixtures/`.
-- Naming: mirror source paths (e.g., `test/calc.test.js`). Keep core logic pure and testable.
+- Framework: Jest; HTTP tests use `supertest`.
+- Naming: `test/**/*.spec.js` (e.g., `test/calc.spec.js`). Keep core logic pure and testable.
+- Run: `npm test` (runs in-band on Node).
+- During development, also use `DRY_RUN=1` and curl smoke checks.
 
 ## Commit & Pull Request Guidelines
 - Never commit/push without owner approval. Apply a KISS check before every change.
@@ -45,4 +47,3 @@
 - Express serves the static UI and JSON APIs.
 - Scheduler pulls balances/prices via `src/htx.js`, computes snapshots with `src/calc.js`, and persists state using `src/state.js`.
 - PWA assets live in `public/` (`manifest.json`, `icon-*.png`, `service-worker.js`).
-

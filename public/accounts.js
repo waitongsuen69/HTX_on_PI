@@ -14,7 +14,7 @@ async function load() {
   const json = await res.json();
   state.items = json.items || [];
   state.tron = json.tron || { api_key: '' };
-  state.cardano = json.cardano || { provider: 'blockfrost', project_id: '' };
+  state.cardano = json.cardano || { project_id: '' };
 }
 
 function fmtTime(ts) {
@@ -254,7 +254,7 @@ async function onSave() {
     const projectId = (document.getElementById('fBlockfrostKey').value || '').trim();
     if (!projectId) { toast('Blockfrost Project ID required'); return; }
     try {
-      await fetch('/api/cardano-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'blockfrost', project_id: projectId }) });
+      await fetch('/api/cardano-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId }) });
     } catch (_) { /* ignore */ }
   }
   let res;

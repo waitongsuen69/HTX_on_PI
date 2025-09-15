@@ -56,15 +56,15 @@ async function getTronConfig() {
   const st = await loadAccounts();
   const meta = st.meta || {};
   const api_key = meta.tron_api_key || '';
-  const fullnode = meta.tron_fullnode || 'https://api.trongrid.io';
+  // Full node is fixed; do not override via meta/env.
+  const fullnode = 'https://api.trongrid.io';
   return { api_key, fullnode };
 }
 
-async function setTronConfig({ api_key, fullnode } = {}) {
+async function setTronConfig({ api_key } = {}) {
   const st = await loadAccounts();
   if (!st.meta) st.meta = { last_id: st.meta && st.meta.last_id ? st.meta.last_id : 0 };
   if (typeof api_key === 'string') st.meta.tron_api_key = api_key;
-  if (typeof fullnode === 'string' && fullnode.trim() !== '') st.meta.tron_fullnode = fullnode;
   await saveAccountsAtomic(st);
   return getTronConfig();
 }
@@ -270,15 +270,13 @@ async function getTronAddresses() {
 async function getCardanoConfig() {
   const st = await loadAccounts();
   const meta = st.meta || {};
-  const provider = String(meta.cardano_provider || process.env.CARDANO_PROVIDER || 'blockfrost').toLowerCase();
   const project_id = String(meta.blockfrost_project_id || process.env.BLOCKFROST_PROJECT_ID || '');
-  return { provider, project_id };
+  return { project_id };
 }
 
-async function setCardanoConfig({ provider, project_id } = {}) {
+async function setCardanoConfig({ project_id } = {}) {
   const st = await loadAccounts();
   if (!st.meta) st.meta = { last_id: st.meta && st.meta.last_id ? st.meta.last_id : 0 };
-  if (typeof provider === 'string' && provider.trim() !== '') st.meta.cardano_provider = provider;
   if (typeof project_id === 'string') st.meta.blockfrost_project_id = project_id;
   await saveAccountsAtomic(st);
   return getCardanoConfig();

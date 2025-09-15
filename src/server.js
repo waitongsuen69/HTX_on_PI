@@ -182,8 +182,9 @@ app.use('/api/market', require('./routes/market'));
 app.get('/api/accounts', async (req, res) => {
   try {
     const items = await Accounts.listSanitized();
-    const tron = await Accounts.getTronConfig();
+    const tronCfg = await Accounts.getTronConfig();
     const cardano = await Accounts.getCardanoConfig();
+    const tron = { api_key: tronCfg.api_key || '' }; // do not expose fullnode
     res.json({ items, tron, cardano });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
@@ -285,7 +286,7 @@ app.get('/api/tron-config', async (req, res) => {
 app.patch('/api/tron-config', async (req, res) => {
   try {
     const body = req.body || {};
-    const cfg = await Accounts.setTronConfig({ api_key: body.api_key, fullnode: body.fullnode });
+    const cfg = await Accounts.setTronConfig({ api_key: body.api_key });
     res.json(cfg);
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
@@ -305,7 +306,7 @@ app.get('/api/cardano-config', async (req, res) => {
 app.patch('/api/cardano-config', async (req, res) => {
   try {
     const body = req.body || {};
-    const cfg = await Accounts.setCardanoConfig({ provider: body.provider, project_id: body.project_id });
+    const cfg = await Accounts.setCardanoConfig({ project_id: body.project_id });
     res.json(cfg);
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });

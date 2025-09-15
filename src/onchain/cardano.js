@@ -5,7 +5,6 @@ const BF_BASE = 'https://cardano-mainnet.blockfrost.io/api/v0';
 
 async function requireBlockfrost() {
   const cfg = await Accounts.getCardanoConfig();
-  if ((cfg.provider || 'blockfrost') !== 'blockfrost') throw new Error('cardano_unsupported_provider');
   if (!cfg.project_id) {
     const err = new Error('cardano_missing_blockfrost_key');
     err.code = 'cardano_missing_blockfrost_key';

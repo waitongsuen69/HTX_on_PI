@@ -276,51 +276,11 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
     }
 
     if (raw.type === 'dex' && String(raw.chain || '').toLowerCase() === 'tron') {
-      // Load allowlist config
-      const fs = require('fs');
-      const path = require('path');
-      let tokens = [
-        { symbol: 'USDT', contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6 },
-        { symbol: 'USDC', contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8', decimals: 6 },
-      ];
-      try {
-        const file = path.join(process.cwd(), 'data', 'onchain_config.json');
-        if (fs.existsSync(file)) {
-          const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
-          if (cfg && cfg.tron && Array.isArray(cfg.tron.tokens)) tokens = cfg.tron.tokens;
-        }
-      } catch (_) {}
       try {
         const tron = require('./onchain/tron');
+        const pos = await tron.getBalances([raw.address]);
         const items = [];
-
-        // Compute TRX breakdown (available vs staked) for this address
-        try {
-          const { getTronConfig } = require('./accounts');
-          const tc = await getTronConfig();
-          const tw = tron.createClient({ apiKey: tc.api_key, fullHost: tc.fullnode });
-          const acct = await tw.trx.getAccount(raw.address);
-          let availSun = 0;
-          let stakedSun = 0;
-          if (acct && Number.isFinite(Number(acct.balance))) availSun = Number(acct.balance || 0);
-          if (Array.isArray(acct && acct.frozenV2)) {
-            for (const f of acct.frozenV2) stakedSun += Number(f && f.amount || 0);
-          }
-          const ar = acct && acct.account_resource;
-          if (ar && ar.frozen_balance_for_energy && Number.isFinite(Number(ar.frozen_balance_for_energy.frozen_balance))) {
-            stakedSun += Number(ar.frozen_balance_for_energy.frozen_balance || 0);
-          }
-          if (Array.isArray(acct && acct.frozen)) {
-            for (const f of acct.frozen) stakedSun += Number(f && f.frozen_balance || 0);
-          }
-          if (availSun > 0) items.push({ source: 'dex', chain: 'tron', symbol: 'TRX', qty: availSun / 1e6 });
-          if (stakedSun > 0) items.push({ source: 'dex', chain: 'tron', symbol: 'TRX(stake)', qty: stakedSun / 1e6 });
-        } catch (_) { /* ignore; not critical */ }
-
-        // TRC-20 tokens via adapter (filter out TRX to avoid duplicates)
-        const pos = await tron.getBalances([raw.address], tokens);
         for (const p of pos) {
-          if (String(p.symbol || '').toUpperCase() === 'TRX') continue;
           const qty = Number(p.qty || 0);
           if (qty > 0) items.push({ source: 'dex', chain: 'tron', symbol: p.symbol, qty });
         }

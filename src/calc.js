@@ -14,15 +14,17 @@ function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdI
     if (free <= 0) continue;
     const pr = prices[sym];
     const price = pr?.price ?? null;
+    // Rule: if no price, do not show on dashboard
+    if (price == null) continue;
     const day_pct = pr?.day_pct ?? null;
-    const value = price != null ? free * price : 0;
+    const value = free * price;
 
     const { avg_cost, qty } = avgCostForSymbol(lotsState || {}, sym);
     const pnl_pct = avg_cost > 0 && price != null ? ((price / avg_cost - 1) * 100) : null;
 
     const reconciled = Math.abs((qty || 0) - free) <= 1e-8; // within tolerance
 
-    // Ignore positions worth less than minUsdIgnore (except forced-include symbols, e.g., DEX)
+    // Ignore positions worth less than minUsdIgnore
     const mustInclude = includeSet.has(String(sym).toUpperCase());
     if (!mustInclude && value < Number(minUsdIgnore || 0)) continue;
 
@@ -36,10 +38,8 @@ function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdI
       unreconciled: !reconciled,
     });
 
-    if (price != null) {
-      totalValue += value;
-      if (day_pct != null) weightedDayNumer += value * (day_pct / 100);
-    }
+    totalValue += value;
+    if (day_pct != null) weightedDayNumer += value * (day_pct / 100);
   }
 
   const total_change_24h_pct = totalValue > 0 ? (weightedDayNumer / totalValue) * 100 : 0;

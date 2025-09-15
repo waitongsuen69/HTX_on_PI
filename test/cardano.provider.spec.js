@@ -32,7 +32,7 @@ describe('Cardano provider (unit)', () => {
     metaSpy.mockRestore();
     // Expect two items: ADA and one native token
     const ada = res.find(x => x.symbol === 'ADA');
-    const tok = res.find(x => String(x.symbol).startsWith('CARDANO:'));
+    const tok = res.find(x => String(x.symbol).toUpperCase() !== 'ADA');
     expect(ada).toBeTruthy();
     expect(tok).toBeTruthy();
     expect(ada.qty).toBeCloseTo(4.5, 6);
@@ -55,9 +55,9 @@ describe('Cardano provider (unit)', () => {
     const res = await cardano.getBalances([addr]);
     spy.mockRestore();
     metaSpy.mockRestore();
-    const tok = res.find(x => String(x.symbol).startsWith('CARDANO:'));
+    const tok = res.find(x => String(x.symbol).toUpperCase() === 'SNEK');
     expect(tok).toBeTruthy();
-    expect(tok.symbol).toBe('CARDANO:SNEK');
+    expect(tok.symbol).toBe('SNEK');
     expect(tok.qty).toBeCloseTo(17427.0, 6);
   });
 });

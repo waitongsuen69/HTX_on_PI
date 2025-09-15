@@ -3,48 +3,47 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/`: server and core modules — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
-- `public/`: static client (PWA assets) — `index.html`, `app.js`, icons, service worker.
-- `data/`: runtime JSON snapshots (atomic writes). Do not edit while the server runs.
+- `src/`: core server — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
+- `src/services/`, `src/routes/`, `src/onchain/`: HTTP routes and on‑chain providers (`tron.js`, `cardano.js`).
+- `public/`: static PWA — `index.html`, `app.js`, `settings.html`, `service-worker.js`, icons.
 - `test/`: Jest specs (`test/**/*.spec.js`).
-- `.env.example`: template for required config. Copy to `.env` locally.
+- `data/`: runtime JSON snapshots (atomic writes). Do not edit while the server runs.
+- `.env.example`: copy to `.env` and fill required keys.
 
 ## Build, Test, and Development Commands
 - `npm i`: install dependencies.
 - `npm start`: start Express server (`src/server.js`).
-- `npm run dev`: start with auto‑reload via `nodemon`.
-- `npm test`: run Jest test suite.
-- `DRY_RUN=1 npm start`: seed a sample snapshot and skip HTX calls.
-- `NO_LISTEN=1 node src/server.js`: run background jobs only (no HTTP listener).
+- `npm run dev`: start with auto‑reload (`nodemon`).
+- `npm test`: run Jest tests (in‑band).
+- `DRY_RUN=1 npm start`: seed a sample snapshot; skip HTX calls.
+- `NO_LISTEN=1 node src/server.js`: run background jobs only.
 - Smoke checks (replace `$PORT`):
   - `curl http://localhost:$PORT/api/health`
   - `curl http://localhost:$PORT/api/snapshot`
   - `curl 'http://localhost:$PORT/api/history?n=10'`
 
 ## Coding Style & Naming Conventions
-- Language: Node.js (CommonJS). Export via `module.exports = { ... }`.
-- Style: 2‑space indentation; include semicolons; single quotes for strings.
-- Filenames: lowercase with dashes or plain words (e.g., `server.js`, `calc.js`).
-- Structure: keep pure logic in helpers like `calc.js`; compose small modules in `src/`.
+- Node.js (CommonJS). Export via `module.exports = { ... }`.
+- 2‑space indentation; semicolons; single quotes.
+- Filenames: lowercase with dashes or plain words (`server.js`, `calc.js`).
+- Keep pure logic in helpers; compose small modules in `src/`.
 
 ## Testing Guidelines
-- Framework: Jest; HTTP tests use `supertest`.
-- Naming: `test/**/*.spec.js` (e.g., `test/calc.spec.js`). Keep core logic pure and testable.
-- Run: `npm test` (runs in-band on Node).
-- During development, also use `DRY_RUN=1` and curl smoke checks.
+- Framework: Jest; HTTP tests use `supertest`; UI tests run with jsdom.
+- Naming: `test/**/*.spec.js`.
+- Run locally: `npm test`. Prefer pure, deterministic units.
 
 ## Commit & Pull Request Guidelines
-- Never commit/push without owner approval. Apply a KISS check before every change.
-- Commits: concise, imperative mood; include scope when helpful (e.g., `server: handle NO_LISTEN`).
-- PRs: include summary, rationale, and testing steps; add screenshots for UI changes.
-- Keep PRs focused and incremental; link related issues; avoid drive‑by refactors.
+- Never commit/push without owner approval. Run a KISS check (Keep It Simple and Small) before every change.
+- Commits: concise, imperative (e.g., `server: handle NO_LISTEN`).
+- PRs: include summary, rationale, steps to test; screenshots for UI. Keep focused and incremental; link issues.
 
 ## Security & Configuration Tips
 - Load config via `dotenv`; document new vars in `.env.example`. Never commit `.env` or secrets.
-- Ensure `.gitignore` excludes sensitive/generated files.
+- Relevant keys: `TRON_FULLNODE`, `CARDANO_PROVIDER=blockfrost`, `BLOCKFROST_PROJECT_ID`.
 - CSP blocks inline scripts; register the service worker via `public/sw-register.js`.
 
 ## Architecture Overview
-- Express serves the static UI and JSON APIs.
-- Scheduler pulls balances/prices via `src/htx.js`, computes snapshots with `src/calc.js`, and persists state using `src/state.js`.
-- PWA assets live in `public/` (`manifest.json`, `icon-*.png`, `service-worker.js`).
+- Express serves static UI and JSON APIs.
+- Scheduler aggregates CEX (HTX) and on‑chain balances (TRON, Cardano), prices assets, and persists snapshots.
+- PWA assets live under `public/` (`manifest.json`, `icon-*.png`, `service-worker.js`).

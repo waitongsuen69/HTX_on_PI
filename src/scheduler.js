@@ -110,7 +110,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
               balances[sym].free += Number(p.qty || 0);
               if (p.account_id) await Accounts.health(p.account_id, 'ok');
               // Ensure native tokens get included even if unpriced
-              if (sym.startsWith('CARDANO:')) alwaysInclude.add(sym);
+              if (p.unpriced) alwaysInclude.add(sym);
             }
           }
         }

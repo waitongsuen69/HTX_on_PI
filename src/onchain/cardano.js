@@ -105,7 +105,7 @@ async function getBalances(addresses) {
       const assetHex = unit.slice(56);
       const meta = metaMap.get(unit) || null;
       const symCore = chooseSymbol(meta, policyId, assetHex);
-      const displaySymbol = `CARDANO:${symCore}`;
+      const displaySymbol = symCore; // no chain prefix in symbol
       const dec = chooseDecimals(meta);
       let qty;
       if (dec == null) {
@@ -114,7 +114,7 @@ async function getBalances(addresses) {
         const denom = Math.pow(10, dec);
         qty = Number(qtyBI) / denom;
       }
-      if (qty > 0) out.push({ source: 'dex', chain: 'cardano', address: addr, symbol: displaySymbol, qty });
+      if (qty > 0) out.push({ source: 'dex', chain: 'cardano', address: addr, symbol: displaySymbol, qty, unpriced: true });
     }
   }
   return out;

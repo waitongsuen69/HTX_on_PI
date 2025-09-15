@@ -6,6 +6,7 @@
 - `src/`: server and core modules — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
 - `public/`: static client (PWA assets) — `index.html`, `app.js`, icons, service worker.
 - `data/`: runtime JSON snapshots (atomic writes). Do not edit while the server runs.
+- `test/`: Jest specs (`test/**/*.spec.js`).
 - `.env.example`: template for required config. Copy to `.env` locally.
 
 ## Build, Test, and Development Commands

@@ -14,6 +14,7 @@ async function load() {
   const json = await res.json();
   state.items = json.items || [];
   state.tron = json.tron || { api_key: '' };
+  state.cardano = json.cardano || { provider: 'blockfrost', project_id: '' };
 }
 
 function fmtTime(ts) {
@@ -55,8 +56,14 @@ function render() {
   const rows = items.map((a) => {
     const statusClass = `pill status ${a.status}`;
     const dotColor = a.status === 'ok' ? '#0aff7a' : a.status === 'warn' ? '#ffd166' : '#ff6b6b';
-    const badgeVal = (String(a.type || '').toLowerCase() === 'dex') ? (a.chain || '—') : (a.platform || '—');
-    const badge = `<span class="badge">${badgeVal}</span>`;
+    const isDexType = (String(a.type || '').toLowerCase() === 'dex');
+    const badgeVal = isDexType ? (a.chain || '—') : (a.platform || '—');
+    let detail = '';
+    if (isDexType && a.chain === 'cardano') {
+      if ((a.track_by || 'stake') === 'stake' && a.stake) detail = ` — <span class="muted">${String(a.stake).slice(0, 12)}…</span>`;
+      else if (Array.isArray(a.addresses)) detail = ` — <span class="muted">${a.addresses.length} addr</span>`;
+    }
+    const badge = `<span class="badge">${badgeVal}</span>${detail}`;
     const trClass = a.enabled ? '' : 'row-disabled';
         const today = `<span class="today">${Number((a.today && a.today.calls) || 0)} calls</span>`;
     return `
@@ -109,6 +116,8 @@ function closeDetailModal() { document.getElementById('detailModal').style.displ
 
 function openTronHelp() { const m = document.getElementById('tronHelpModal'); if (m) m.style.display = 'flex'; }
 function closeTronHelp() { const m = document.getElementById('tronHelpModal'); if (m) m.style.display = 'none'; }
+function openBlockfrostHelp() { const m = document.getElementById('blockfrostHelpModal'); if (m) m.style.display = 'flex'; }
+function closeBlockfrostHelp() { const m = document.getElementById('blockfrostHelpModal'); if (m) m.style.display = 'none'; }
 
 function fmtQty(q) {
   const n = Number(q || 0);
@@ -151,6 +160,20 @@ function fillForm(a) {
   document.getElementById('fSecretKey').value = '';
   document.getElementById('fChain').value = a?.chain || 'tron';
   document.getElementById('fAddress').value = a?.address || '';
+  // Cardano-specific fields
+  const chainVal = (a?.chain || document.getElementById('fChain').value || '').toLowerCase();
+  const isCardano = chainVal === 'cardano' && t === 'DEX';
+  if (isCardano) {
+    const mode = (a?.track_by || 'stake').toLowerCase();
+    document.getElementById('fAdaMode').value = mode === 'addresses' ? 'addresses' : 'stake';
+    document.getElementById('fStake').value = a?.stake || '';
+    const addrs = Array.isArray(a?.addresses) ? a.addresses : [];
+    document.getElementById('fAddresses').value = addrs.join('\n');
+  } else {
+    document.getElementById('fAdaMode').value = 'stake';
+    document.getElementById('fStake').value = '';
+    document.getElementById('fAddresses').value = '';
+  }
   const isDex = (t === 'DEX');
   applyTypeUI(isDex ? 'DEX' : 'CEX');
   // If DEX and TRON, show shared TRON key
@@ -159,6 +182,11 @@ function fillForm(a) {
     document.getElementById('fTronApiKey').value = (state.tron && state.tron.api_key) || '';
   } else {
     document.getElementById('fTronApiKey').value = '';
+  }
+  if (isDex && chain === 'cardano') {
+    document.getElementById('fBlockfrostKey').value = (state.cardano && state.cardano.project_id) || '';
+  } else {
+    document.getElementById('fBlockfrostKey').value = '';
   }
 }
 
@@ -169,9 +197,19 @@ function readForm() {
     type,
   };
   if (type === 'DEX') {
+    const chain = document.getElementById('fChain').value;
+    if (chain === 'cardano') {
+      const mode = document.getElementById('fAdaMode').value;
+      if (mode === 'stake') {
+        return { ...common, chain, track_by: 'stake', stake: (document.getElementById('fStake').value || '').trim() };
+      } else {
+        const lines = (document.getElementById('fAddresses').value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        return { ...common, chain, track_by: 'addresses', addresses: lines };
+      }
+    }
     return {
       ...common,
-      chain: document.getElementById('fChain').value,
+      chain,
       address: (document.getElementById('fAddress').value || '').trim(),
     };
   } else {
@@ -195,13 +233,28 @@ async function onSave() {
   if (t === 'CEX' && !state.editingId) {
     if (!payload.access_key || !payload.secret_key) { toast('Access/Secret required'); return; }
   }
-  if (t === 'DEX' && !payload.address) { toast('Address required'); return; }
+  if (t === 'DEX' && payload.chain !== 'cardano' && !payload.address) { toast('Address required'); return; }
+  // Cardano DEX validation
+  if (t === 'DEX' && payload.chain === 'cardano') {
+    if (payload.track_by === 'stake') {
+      if (!/^stake1[0-9a-z]+$/i.test(payload.stake || '')) { toast('Valid stake1… required'); return; }
+    } else if (!Array.isArray(payload.addresses) || payload.addresses.length === 0) {
+      toast('At least one addr1… required'); return;
+    }
+  }
   // If TRON DEX, persist shared TRON API key first
   if (t === 'DEX' && payload.chain === 'tron') {
     const apiKey = (document.getElementById('fTronApiKey').value || '').trim();
     if (!apiKey) { toast('TRON API key required'); return; }
     try {
       await fetch('/api/tron-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });
+    } catch (_) { /* ignore */ }
+  }
+  if (t === 'DEX' && payload.chain === 'cardano') {
+    const projectId = (document.getElementById('fBlockfrostKey').value || '').trim();
+    if (!projectId) { toast('Blockfrost Project ID required'); return; }
+    try {
+      await fetch('/api/cardano-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'blockfrost', project_id: projectId }) });
     } catch (_) { /* ignore */ }
   }
   let res;
@@ -235,6 +288,14 @@ function bindUI() {
   if (typeEl) typeEl.addEventListener('change', () => applyTypeUI(typeEl.value));
   const chainEl = document.getElementById('fChain');
   if (chainEl) chainEl.addEventListener('change', () => applyTypeUI(document.getElementById('fType').value));
+  const adaModeEl = document.getElementById('fAdaMode');
+  if (adaModeEl) adaModeEl.addEventListener('change', () => applyTypeUI(document.getElementById('fType').value));
+  const linkBfHelp = document.getElementById('linkBlockfrostHelp');
+  if (linkBfHelp) linkBfHelp.addEventListener('click', (e) => { e.preventDefault(); openBlockfrostHelp(); });
+  const btnCloseBfHelp = document.getElementById('btnCloseBlockfrostHelp');
+  if (btnCloseBfHelp) btnCloseBfHelp.addEventListener('click', closeBlockfrostHelp);
+  const bfHelpModal = document.getElementById('blockfrostHelpModal');
+  if (bfHelpModal) bfHelpModal.addEventListener('click', (e) => { if (e.target === bfHelpModal) closeBlockfrostHelp(); });
   const linkTronHelp = document.getElementById('linkTronHelp');
   if (linkTronHelp) linkTronHelp.addEventListener('click', (e) => { e.preventDefault(); openTronHelp(); });
   const btnCloseTronHelp = document.getElementById('btnCloseTronHelp');
@@ -255,12 +316,24 @@ function applyTypeUI(typeVal) {
   setVisible('chainRow', isDex);
   setVisible('akRow', !isDex);
   setVisible('skRow', !isDex);
-  setVisible('addressRow', isDex);
   const chain = document.getElementById('fChain').value;
-  const showTron = isDex && chain === 'tron';
+  const isCardano = isDex && chain === 'cardano';
+  const isTron = isDex && chain === 'tron';
+  setVisible('addressRow', isDex && !isCardano);
+  const showTron = isTron;
   setVisible('tronKeyRow', showTron);
   if (showTron) {
     document.getElementById('fTronApiKey').value = (state.tron && state.tron.api_key) || '';
+  }
+  // Cardano-specific toggles
+  setVisible('cardanoModeRow', isCardano);
+  const mode = document.getElementById('fAdaMode').value || 'stake';
+  setVisible('stakeRow', isCardano && mode === 'stake');
+  setVisible('addressesRow', isCardano && mode === 'addresses');
+  // Shared Blockfrost key field visibility
+  setVisible('blockfrostKeyRow', isCardano);
+  if (isCardano) {
+    document.getElementById('fBlockfrostKey').value = (state.cardano && state.cardano.project_id) || '';
   }
 }
 

@@ -87,7 +87,7 @@ function renderPositions(ps, totalWorth) {
     card.className = 'card';
     card.dataset.symbol = p.symbol;
     const worth = Number((p.value != null ? p.value : ((p.free || 0) * (p.price || 0))) || 0);
-    const priceStr = p.price==null ? '—' : fmtNum(p.price, (p.price < 1 ? 6 : 2));
+    const priceStr = p.price==null ? 'Unpriced' : fmtNum(p.price, (p.price < 1 ? 6 : 2));
     const weightPct = totalWorth > 0 ? (worth / totalWorth * 100) : 0;
     const c1d = (p.change_1d_pct!=null ? p.change_1d_pct : (p.day_pct!=null ? p.day_pct : null));
     if (c1d == null || c1d === 0) card.classList.add('flat');

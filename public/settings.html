@@ -125,6 +125,7 @@
               <span>Chain</span>
               <select id="fChain">
                 <option value="tron">tron</option>
+                <option value="cardano">cardano</option>
                 <option value="ethereum" disabled>ethereum (not supported)</option>
                 <option value="arbitrum" disabled>arbitrum (not supported)</option>
                 <option value="polygon" disabled>polygon (not supported)</option>
@@ -147,11 +148,33 @@
               <span>Address</span>
               <input id="fAddress" placeholder="0x... or T..." />
             </label>
+            <label id="cardanoModeRow" class="full" style="display:none;">
+              <span>Cardano Mode</span>
+              <select id="fAdaMode">
+                <option value="stake">Stake (stake1…)</option>
+                <option value="addresses">Addresses (addr1… list)</option>
+              </select>
+            </label>
+            <label id="stakeRow" class="full" style="display:none;">
+              <span>Stake Address</span>
+              <input id="fStake" placeholder="stake1..." />
+            </label>
+            <label id="addressesRow" class="full" style="display:none;">
+              <span>Addresses (one per line)</span>
+              <textarea id="fAddresses" rows="4" placeholder="addr1...\naddr1..."></textarea>
+            </label>
             <label id="tronKeyRow" class="full" style="display:none;">
               <span>TRON API Key (required, shared)</span>
               <div style="display:flex; gap:8px; align-items:center;">
                 <input id="fTronApiKey" placeholder="TRON-PRO-API-KEY (shared across TRON DEX accounts)" style="flex:1;" />
                 <a href="#" id="linkTronHelp" class="muted" style="white-space:nowrap;">how to get tron api key</a>
+              </div>
+            </label>
+            <label id="blockfrostKeyRow" class="full" style="display:none;">
+              <span>Blockfrost Project ID (required, shared)</span>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input id="fBlockfrostKey" placeholder="Project ID from blockfrost.io" style="flex:1;" />
+                <a href="#" id="linkBlockfrostHelp" class="muted" style="white-space:nowrap;">how to get blockfrost id</a>
               </div>
             </label>
           </div>
@@ -193,13 +216,31 @@
         </header>
         <div class="body">
           <ol style="margin:0; padding-left:18px; line-height:1.6;">
-            <li>Go to https://www.trongrid.io/ and sign in or create an account.</li>
+            <li>Go to <a href="https://www.trongrid.io/" target="_blank" rel="noopener noreferrer">https://www.trongrid.io/</a> and sign in or create an account.</li>
             <li>Open the Dashboard and create a new API key.</li>
             <li>Copy the value shown as TRON-PRO-API-KEY.</li>
             <li>Paste it into the “TRON API Key (required, shared)” field.</li>
             <li>Optional: keep the default Full Node or add your own endpoint.</li>
           </ol>
           <p class="muted" style="margin-top:10px;">This key is shared by all TRON DEX addresses in this app.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="blockfrostHelpModal">
+      <div class="panel">
+        <header>
+          <div>How to get a Blockfrost Project ID</div>
+          <button id="btnCloseBlockfrostHelp" class="btn">Close</button>
+        </header>
+        <div class="body">
+          <ol style="margin:0; padding-left:18px; line-height:1.6;">
+            <li>Go to <a href="https://blockfrost.io/" target="_blank" rel="noopener noreferrer">https://blockfrost.io/</a> and sign in or create an account.</li>
+            <li>Create a new project for Cardano mainnet.</li>
+            <li>Copy the displayed Project ID (not the secret).</li>
+            <li>Paste it into the “Blockfrost Project ID” field.</li>
+          </ol>
+          <p class="muted" style="margin-top:10px;">This ID is shared by all Cardano DEX accounts in this app.</p>
         </div>
       </div>
     </div>

@@ -14,18 +14,18 @@ function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdI
     if (free <= 0) continue;
     const pr = prices[sym];
     const price = pr?.price ?? null;
-    // Rule: if no price, do not show on dashboard
-    if (price == null) continue;
+    const mustInclude = includeSet.has(String(sym).toUpperCase());
+    // If no price and not required, skip. If mustInclude, include with price=null and value 0.
+    if (price == null && !mustInclude) continue;
     const day_pct = pr?.day_pct ?? null;
-    const value = free * price;
+    const value = price != null ? (free * price) : 0;
 
     const { avg_cost, qty } = avgCostForSymbol(lotsState || {}, sym);
     const pnl_pct = avg_cost > 0 && price != null ? ((price / avg_cost - 1) * 100) : null;
 
     const reconciled = Math.abs((qty || 0) - free) <= 1e-8; // within tolerance
 
-    // Ignore positions worth less than minUsdIgnore
-    const mustInclude = includeSet.has(String(sym).toUpperCase());
+    // Ignore positions worth less than minUsdIgnore, unless mustInclude
     if (!mustInclude && value < Number(minUsdIgnore || 0)) continue;
 
     positions.push({

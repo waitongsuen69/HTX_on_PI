@@ -183,7 +183,8 @@ app.get('/api/accounts', async (req, res) => {
   try {
     const items = await Accounts.listSanitized();
     const tron = await Accounts.getTronConfig();
-    res.json({ items, tron });
+    const cardano = await Accounts.getCardanoConfig();
+    res.json({ items, tron, cardano });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -200,6 +201,9 @@ app.post('/api/accounts', async (req, res) => {
       secret_key: body.secret_key,
       chain: body.chain,
       address: body.address,
+      track_by: body.track_by,
+      stake: body.stake,
+      addresses: body.addresses,
       enabled: body.enabled,
     });
     res.status(201).json({ item: Accounts.sanitizeAccount(item) });
@@ -288,6 +292,26 @@ app.patch('/api/tron-config', async (req, res) => {
   }
 });
 
+// Shared Cardano config (Blockfrost project id)
+app.get('/api/cardano-config', async (req, res) => {
+  try {
+    const cfg = await Accounts.getCardanoConfig();
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.patch('/api/cardano-config', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const cfg = await Accounts.setCardanoConfig({ provider: body.provider, project_id: body.project_id });
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
 // App config (min_usd_ignore)
 app.get('/api/app-config', async (req, res) => {
   try {
@@ -348,6 +372,31 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
         return res.json({ items });
       } catch (e) {
         return res.json({ items: [], error: 'fetch_failed', message: e.message });
+      }
+    }
+
+    if (raw.type === 'dex' && String(raw.chain || '').toLowerCase() === 'cardano') {
+      try {
+        const cardano = require('./onchain/cardano');
+        let addrs = [];
+        const mode = String(raw.track_by || 'stake');
+        if (mode === 'stake' && raw.stake) {
+          addrs = await cardano.getStakeAddresses(raw.stake);
+        } else if (Array.isArray(raw.addresses)) {
+          addrs = raw.addresses;
+        }
+        const pos = await cardano.getBalances(addrs);
+        const items = [];
+        for (const p of pos) {
+          const qty = Number(p.qty || 0);
+          if (qty > 0) items.push({ source: 'dex', chain: 'cardano', symbol: p.symbol, qty });
+        }
+        return res.json({ items });
+      } catch (e) {
+        const code = e && e.code === 'cardano_missing_blockfrost_key' ? 400 : 200;
+        const payload = { items: [], error: 'fetch_failed', message: e.message };
+        if (code === 400) payload.hint = 'Set BLOCKFROST_PROJECT_ID in environment.';
+        return res.status(code).json(payload);
       }
     }
 

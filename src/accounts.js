@@ -123,12 +123,31 @@ function normalizeAccount(a) {
     if (!['HTX'].includes(platform)) return null; // unsupported CEX platform
     return { ...base, platform, access_key, secret_key };
   } else {
-    // Normalize chain and enforce supported set (tron only for now)
+    // Normalize chain and enforce supported set (tron, cardano)
     const chain = String(a.chain || '').toLowerCase();
-    const address = String(a.address || '');
-    if (!chain || !address) return null; // invalid DEX
-    if (!['tron'].includes(chain)) return null; // unsupported DEX chain
-    return { ...base, chain, address };
+    if (!chain) return null;
+    if (chain === 'tron') {
+      const address = String(a.address || '');
+      if (!address) return null;
+      return { ...base, chain, address };
+    }
+    if (chain === 'cardano') {
+      const track_by = String(a.track_by || a.trackBy || '').toLowerCase();
+      let out = { ...base, chain, track_by: track_by === 'addresses' ? 'addresses' : 'stake' };
+      if (out.track_by === 'stake') {
+        const stake = String(a.stake || '').trim();
+        if (!/^stake1[0-9a-z]+$/i.test(stake)) return null;
+        out.stake = stake;
+      } else {
+        // addresses list
+        const arr = Array.isArray(a.addresses) ? a.addresses : String(a.address || '') ? [a.address] : [];
+        const norm = arr.map(s => String(s || '').trim()).filter(s => /^addr1[0-9a-z]+$/i.test(s));
+        if (norm.length === 0) return null;
+        out.addresses = Array.from(new Set(norm));
+      }
+      return out;
+    }
+    return null; // unsupported DEX chain
   }
 }
 
@@ -153,6 +172,9 @@ async function update(id, patch) {
   if (p.platform != null) merged.platform = String(p.platform);
   if (p.chain != null) merged.chain = String(p.chain);
   if (p.address != null) merged.address = String(p.address);
+  if (p.track_by != null) merged.track_by = String(p.track_by);
+  if (p.stake != null) merged.stake = String(p.stake);
+  if (Array.isArray(p.addresses)) merged.addresses = p.addresses.map(s => String(s));
   if (p.type != null) merged.type = normalizeType(p.type);
   if (p.enabled != null) merged.enabled = !!p.enabled;
   if (p.status != null) merged.status = String(p.status);
@@ -245,6 +267,34 @@ async function getTronAddresses() {
     .map((a) => ({ id: a.id, name: a.name, address: a.address }));
 }
 
+async function getCardanoConfig() {
+  const st = await loadAccounts();
+  const meta = st.meta || {};
+  const provider = String(meta.cardano_provider || process.env.CARDANO_PROVIDER || 'blockfrost').toLowerCase();
+  const project_id = String(meta.blockfrost_project_id || process.env.BLOCKFROST_PROJECT_ID || '');
+  return { provider, project_id };
+}
+
+async function setCardanoConfig({ provider, project_id } = {}) {
+  const st = await loadAccounts();
+  if (!st.meta) st.meta = { last_id: st.meta && st.meta.last_id ? st.meta.last_id : 0 };
+  if (typeof provider === 'string' && provider.trim() !== '') st.meta.cardano_provider = provider;
+  if (typeof project_id === 'string') st.meta.blockfrost_project_id = project_id;
+  await saveAccountsAtomic(st);
+  return getCardanoConfig();
+}
+
+function isCardanoDex(a) {
+  return a && a.type === 'dex' && String(a.chain || '').toLowerCase() === 'cardano' && (a.stake || (Array.isArray(a.addresses) && a.addresses.length > 0));
+}
+
+async function getCardanoSpecs() {
+  const st = await loadAccounts();
+  return (st.items || [])
+    .filter((a) => isCardanoDex(a) && a.enabled)
+    .map((a) => ({ id: a.id, name: a.name, track_by: a.track_by || 'stake', stake: a.stake || '', addresses: Array.isArray(a.addresses) ? a.addresses : [] }));
+}
+
 module.exports = {
   ACCOUNTS_FILE,
   loadAccounts,
@@ -262,6 +312,10 @@ module.exports = {
   redact,
   sanitizeAccount,
   getTronAddresses,
+  isCardanoDex,
+  getCardanoSpecs,
+  getCardanoConfig,
+  setCardanoConfig,
   getTronConfig,
   setTronConfig,
   getAppConfig,

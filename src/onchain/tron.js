@@ -1,14 +1,15 @@
 const TronWebPkg = require('tronweb');
+const Accounts = require('../accounts');
 const TronWebCtor = (TronWebPkg && (TronWebPkg.TronWeb || TronWebPkg.default || TronWebPkg)) || null;
 
-function createClient() {
+function createClient({ apiKey, fullHost } = {}) {
   if (typeof TronWebCtor !== 'function') {
     throw new Error('tronweb_not_available');
   }
-  const fullHost = process.env.TRON_FULLNODE || 'https://api.trongrid.io';
-  const key = process.env.TRON_API_KEY || '';
+  const host = fullHost || process.env.TRON_FULLNODE || 'https://api.trongrid.io';
+  const key = apiKey || process.env.TRON_API_KEY || '';
   const headers = key ? { 'TRON-PRO-API-KEY': key } : {};
-  return new TronWebCtor({ fullHost, headers });
+  return new TronWebCtor({ fullHost: host, headers });
 }
 
 function withTimeout(promise, ms = 10000) {
@@ -111,7 +112,8 @@ async function getTrc20Balance(tron, address, contractAddr, decimals) {
 }
 
 async function getBalances(addresses, allowlistTokens = []) {
-  const tron = createClient();
+  const cfg = await Accounts.getTronConfig();
+  const tron = createClient({ apiKey: cfg.api_key, fullHost: cfg.fullnode });
   const out = [];
   for (const addr of addresses) {
     // Try a single account query to get TRX (incl. staked) and TRC20 balances

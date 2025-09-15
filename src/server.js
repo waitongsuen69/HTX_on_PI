@@ -143,7 +143,8 @@ app.use('/api/market', require('./routes/market'));
 app.get('/api/accounts', async (req, res) => {
   try {
     const items = await Accounts.listSanitized();
-    res.json({ items });
+    const tron = await Accounts.getTronConfig();
+    res.json({ items, tron });
   } catch (e) {
     res.status(500).json({ error: 'server_error', message: e.message });
   }
@@ -228,6 +229,26 @@ app.post('/api/accounts/:id/status', async (req, res) => {
   }
 });
 
+// Shared TRON config (API key/fullnode)
+app.get('/api/tron-config', async (req, res) => {
+  try {
+    const cfg = await Accounts.getTronConfig();
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
+app.patch('/api/tron-config', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const cfg = await Accounts.setTronConfig({ api_key: body.api_key, fullnode: body.fullnode });
+    res.json(cfg);
+  } catch (e) {
+    res.status(500).json({ error: 'server_error', message: e.message });
+  }
+});
+
 // Account assets (details, on-demand; sanitized; no secrets returned)
 app.get('/api/accounts/:id/assets', async (req, res) => {
   try {
@@ -275,7 +296,9 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
 
         // Compute TRX breakdown (available vs staked) for this address
         try {
-          const tw = tron.createClient();
+          const { getTronConfig } = require('./accounts');
+          const tc = await getTronConfig();
+          const tw = tron.createClient({ apiKey: tc.api_key, fullHost: tc.fullnode });
           const acct = await tw.trx.getAccount(raw.address);
           let availSun = 0;
           let stakedSun = 0;

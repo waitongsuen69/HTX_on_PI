@@ -52,6 +52,23 @@ function nextId(state) {
   return String(state.meta.last_id).padStart(6, '0');
 }
 
+async function getTronConfig() {
+  const st = await loadAccounts();
+  const meta = st.meta || {};
+  const api_key = meta.tron_api_key || process.env.TRON_API_KEY || '';
+  const fullnode = meta.tron_fullnode || process.env.TRON_FULLNODE || 'https://api.trongrid.io';
+  return { api_key, fullnode };
+}
+
+async function setTronConfig({ api_key, fullnode } = {}) {
+  const st = await loadAccounts();
+  if (!st.meta) st.meta = { last_id: st.meta && st.meta.last_id ? st.meta.last_id : 0 };
+  if (typeof api_key === 'string') st.meta.tron_api_key = api_key;
+  if (typeof fullnode === 'string' && fullnode.trim() !== '') st.meta.tron_fullnode = fullnode;
+  await saveAccountsAtomic(st);
+  return getTronConfig();
+}
+
 async function list() {
   const st = await loadAccounts();
   return st.items || [];
@@ -226,4 +243,6 @@ module.exports = {
   redact,
   sanitizeAccount,
   getTronAddresses,
+  getTronConfig,
+  setTronConfig,
 };

@@ -13,6 +13,7 @@ async function load() {
   if (!res.ok) throw new Error('Failed to load accounts');
   const json = await res.json();
   state.items = json.items || [];
+  state.tron = json.tron || { api_key: '' };
 }
 
 function fmtTime(ts) {
@@ -149,6 +150,13 @@ function fillForm(a) {
   document.getElementById('fAddress').value = a?.address || '';
   const isDex = (t === 'DEX');
   applyTypeUI(isDex ? 'DEX' : 'CEX');
+  // If DEX and TRON, show shared TRON key
+  const chain = document.getElementById('fChain').value;
+  if (isDex && chain === 'tron') {
+    document.getElementById('fTronApiKey').value = (state.tron && state.tron.api_key) || '';
+  } else {
+    document.getElementById('fTronApiKey').value = '';
+  }
 }
 
 function readForm() {
@@ -185,6 +193,13 @@ async function onSave() {
     if (!payload.access_key || !payload.secret_key) { toast('Access/Secret required'); return; }
   }
   if (t === 'DEX' && !payload.address) { toast('Address required'); return; }
+  // If TRON DEX, persist shared TRON API key first
+  if (t === 'DEX' && payload.chain === 'tron') {
+    const apiKey = (document.getElementById('fTronApiKey').value || '').trim();
+    try {
+      await fetch('/api/tron-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });
+    } catch (_) { /* ignore */ }
+  }
   let res;
   if (state.editingId) {
     res = await fetch(`/api/accounts/${state.editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -214,6 +229,8 @@ function bindUI() {
   document.querySelectorAll('thead th[data-sort]').forEach((th) => { th.addEventListener('click', () => setSort(th.getAttribute('data-sort'))); });
   const typeEl = document.getElementById('fType');
   if (typeEl) typeEl.addEventListener('change', () => applyTypeUI(typeEl.value));
+  const chainEl = document.getElementById('fChain');
+  if (chainEl) chainEl.addEventListener('change', () => applyTypeUI(document.getElementById('fType').value));
 }
 
 function setVisible(id, show) {
@@ -229,6 +246,12 @@ function applyTypeUI(typeVal) {
   setVisible('akRow', !isDex);
   setVisible('skRow', !isDex);
   setVisible('addressRow', isDex);
+  const chain = document.getElementById('fChain').value;
+  const showTron = isDex && chain === 'tron';
+  setVisible('tronKeyRow', showTron);
+  if (showTron) {
+    document.getElementById('fTronApiKey').value = (state.tron && state.tron.api_key) || '';
+  }
 }
 
 async function init() { bindUI(); await load(); render(); }

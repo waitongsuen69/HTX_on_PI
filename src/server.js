@@ -235,14 +235,18 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
     if (!raw) return res.status(404).json({ error: 'not_found' });
 
     if (raw.type === 'cex' && String(raw.platform || '').toUpperCase() === 'HTX') {
-      // Use per-account HTX client to fetch merged balances
+      // Use per-account HTX client to fetch spot vs stake (lending) balances
       const { createHTXClient } = require('./htx');
       try {
         const client = createHTXClient({ accessKey: raw.access_key, secretKey: raw.secret_key, accountId: raw.account_id || '' });
-        const bal = await client.getBalances(); // {SYM: {free}}
-        const items = Object.entries(bal || {})
-          .map(([sym, v]) => ({ source: 'cex', platform: 'HTX', symbol: sym, qty: Number(v?.free || 0) }))
-          .filter(x => x.qty > 0);
+        const { spot, stake } = await client.getBalancesByType(); // { spot: {SYM:num}, stake:{SYM:num} }
+        const items = [];
+        for (const [sym, qty] of Object.entries(spot || {})) {
+          if (qty > 0) items.push({ source: 'cex', platform: 'HTX', symbol: sym.toUpperCase(), qty: Number(qty) });
+        }
+        for (const [sym, qty] of Object.entries(stake || {})) {
+          if (qty > 0) items.push({ source: 'cex', platform: 'HTX', symbol: `${sym.toUpperCase()}(stake)`, qty: Number(qty) });
+        }
         return res.json({ items });
       } catch (e) {
         return res.json({ items: [], error: 'fetch_failed', message: e.message });
@@ -266,8 +270,36 @@ app.get('/api/accounts/:id/assets', async (req, res) => {
       } catch (_) {}
       try {
         const tron = require('./onchain/tron');
+        const items = [];
+
+        // Compute TRX breakdown (available vs staked) for this address
+        try {
+          const tw = tron.createClient();
+          const acct = await tw.trx.getAccount(raw.address);
+          let availSun = 0;
+          let stakedSun = 0;
+          if (acct && Number.isFinite(Number(acct.balance))) availSun = Number(acct.balance || 0);
+          if (Array.isArray(acct && acct.frozenV2)) {
+            for (const f of acct.frozenV2) stakedSun += Number(f && f.amount || 0);
+          }
+          const ar = acct && acct.account_resource;
+          if (ar && ar.frozen_balance_for_energy && Number.isFinite(Number(ar.frozen_balance_for_energy.frozen_balance))) {
+            stakedSun += Number(ar.frozen_balance_for_energy.frozen_balance || 0);
+          }
+          if (Array.isArray(acct && acct.frozen)) {
+            for (const f of acct.frozen) stakedSun += Number(f && f.frozen_balance || 0);
+          }
+          if (availSun > 0) items.push({ source: 'dex', chain: 'tron', symbol: 'TRX', qty: availSun / 1e6 });
+          if (stakedSun > 0) items.push({ source: 'dex', chain: 'tron', symbol: 'TRX(stake)', qty: stakedSun / 1e6 });
+        } catch (_) { /* ignore; not critical */ }
+
+        // TRC-20 tokens via adapter (filter out TRX to avoid duplicates)
         const pos = await tron.getBalances([raw.address], tokens);
-        const items = pos.map(p => ({ source: 'dex', chain: 'tron', symbol: p.symbol, qty: Number(p.qty || 0) })).filter(x => x.qty > 0);
+        for (const p of pos) {
+          if (String(p.symbol || '').toUpperCase() === 'TRX') continue;
+          const qty = Number(p.qty || 0);
+          if (qty > 0) items.push({ source: 'dex', chain: 'tron', symbol: p.symbol, qty });
+        }
         return res.json({ items });
       } catch (e) {
         return res.json({ items: [], error: 'fetch_failed', message: e.message });

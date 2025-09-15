@@ -235,6 +235,10 @@ function createHTXClient({ accessKey, secretKey, accountId = '', host = BASE_HOS
     });
   }
   async function listAccountsC() { return privGet('/v1/account/accounts', {}); }
+  async function fetchAccountBalanceRawC(accId) {
+    const path = `/v1/account/accounts/${accId}/balance`;
+    return privGet(path, {});
+  }
   async function fetchBalancesForAccountC(accId) {
     const path = `/v1/account/accounts/${accId}/balance`;
     const data = await privGet(path, {});
@@ -279,8 +283,40 @@ function createHTXClient({ accessKey, secretKey, accountId = '', host = BASE_HOS
     }
     return merged;
   }
+  async function getBalancesByTypeC() {
+    const accounts = await listAccountsC();
+    const wantedTypes = new Set(['spot', 'deposit-earning']);
+    const idSet = new Set();
+    if (accountId) idSet.add(String(accountId));
+    for (const a of (Array.isArray(accounts) ? accounts : [])) {
+      const t = String(a.type || '').toLowerCase();
+      if (wantedTypes.has(t)) idSet.add(String(a.id));
+    }
+    const hasSpot = accountId ? true : (Array.isArray(accounts) && accounts.some(a => String(a.type || '').toLowerCase() === 'spot'));
+    if (!hasSpot) throw new Error('HTX spot account id not found');
+    const idsToFetch = Array.from(idSet);
+    const spot = {};
+    const stake = {};
+    for (const id of idsToFetch) {
+      const raw = await fetchAccountBalanceRawC(id);
+      if (raw && Array.isArray(raw.list)) {
+        for (const item of raw.list) {
+          const itype = String(item.type || '').toLowerCase();
+          const sym = String(item.currency || '').toUpperCase();
+          const bal = Number(item.balance || 0);
+          if (!sym || bal <= 0) continue;
+          const target = (itype === 'lending') ? stake : spot; // treat lending as stake; others as spot
+          if (!target[sym]) target[sym] = 0;
+          target[sym] += bal;
+        }
+      }
+    }
+    return { spot, stake };
+  }
   return {
     getBalances: getBalancesC,
+    getBalancesByType: getBalancesByTypeC,
+    listAccounts: listAccountsC,
     getPrices, // public; reuse global
   };
 }

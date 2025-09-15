@@ -66,6 +66,24 @@ async function getTrc20Balance(tron, address, contractAddr, decimals) {
         val = decodeTronValue(res);
       } catch (_) { /* ignore */ }
     }
+    if (!val) {
+      // Low-level fallback via triggerSmartContract
+      try {
+        const hex = tron.address.toHex(address);
+        const ret = await withTimeout(
+          tron.transactionBuilder.triggerSmartContract(
+            contractAddr,
+            'balanceOf(address)',
+            {},
+            [{ type: 'address', value: hex }]
+          ),
+          10000
+        );
+        if (ret && Array.isArray(ret.constant_result) && ret.constant_result[0]) {
+          val = parseInt(ret.constant_result[0], 16) || 0;
+        }
+      } catch (_) { /* ignore */ }
+    }
     const denom = Math.pow(10, Number(decimals || 0));
     return denom > 0 ? (Number(val || 0) / denom) : 0;
   } catch (e) { return 0; }
@@ -75,13 +93,61 @@ async function getBalances(addresses, allowlistTokens = []) {
   const tron = createClient();
   const out = [];
   for (const addr of addresses) {
-    // TRX
-    const trx = await getTrxBalance(tron, addr);
-    if (trx > 0) out.push({ source: 'dex', chain: 'tron', address: addr, symbol: 'TRX', qty: trx });
-    // TRC20 sequential per address
+    // Try a single account query to get TRX (incl. staked) and TRC20 balances
+    let accountMap = {};
+    let availSun = 0;
+    let stakedSun = 0;
+    try {
+      const acct = await withTimeout(tron.trx.getAccount(addr), 10000);
+      // Available TRX
+      if (Number.isFinite(Number(acct && acct.balance))) availSun = Number(acct.balance || 0);
+      // Staked TRX (frozen V2)
+      if (Array.isArray(acct && acct.frozenV2)) {
+        for (const f of acct.frozenV2) stakedSun += Number(f && f.amount || 0);
+      }
+      // Older fields
+      const ar = acct && acct.account_resource;
+      if (ar && ar.frozen_balance_for_energy && Number.isFinite(Number(ar.frozen_balance_for_energy.frozen_balance))) {
+        stakedSun += Number(ar.frozen_balance_for_energy.frozen_balance || 0);
+      }
+      if (Array.isArray(acct && acct.frozen)) {
+        for (const f of acct.frozen) stakedSun += Number(f && f.frozen_balance || 0);
+      }
+      const trc20 = Array.isArray(acct && acct.trc20) ? acct.trc20 : [];
+      for (const entry of trc20) {
+        if (entry && typeof entry === 'object') {
+          for (const [k, v] of Object.entries(entry)) {
+            const key = String(k).toLowerCase();
+            // values often come as strings
+            const raw = typeof v === 'string' ? v : (v && v._hex ? parseInt(v._hex, 16) : Number(v));
+            const val = Number(raw || 0);
+            if (!accountMap[key]) accountMap[key] = 0;
+            accountMap[key] += val;
+          }
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    // If account call failed, fall back to simple TRX balance
+    if (!availSun && !stakedSun) {
+      const trx = await getTrxBalance(tron, addr);
+      availSun = Math.round(trx * 1e6);
+    }
+
+    const totalTrx = (availSun + stakedSun) / 1e6;
+    if (totalTrx > 0) out.push({ source: 'dex', chain: 'tron', address: addr, symbol: 'TRX', qty: totalTrx });
+
     for (const tok of allowlistTokens) {
-      const qty = await getTrc20Balance(tron, addr, tok.contract, tok.decimals);
-      if (qty > 0) out.push({ source: 'dex', chain: 'tron', address: addr, symbol: tok.symbol.toUpperCase(), qty });
+      const contractLc = String(tok.contract || '').toLowerCase();
+      let qty = 0;
+      if (accountMap[contractLc] != null) {
+        const denom = Math.pow(10, Number(tok.decimals || 0));
+        qty = denom > 0 ? (Number(accountMap[contractLc] || 0) / denom) : 0;
+      } else {
+        // Fallback to direct contract call
+        qty = await getTrc20Balance(tron, addr, tok.contract, tok.decimals);
+      }
+      if (qty > 0) out.push({ source: 'dex', chain: 'tron', address: addr, symbol: String(tok.symbol || '').toUpperCase(), qty });
     }
   }
   return out;

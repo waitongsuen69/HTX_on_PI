@@ -34,6 +34,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
       const lotsState = loadLots();
       // balances merged across enabled accounts
       let balances = {};
+      const dexSymbols = new Set();
       try {
         const items = await Accounts.listSanitized(); // sanitized ok for routing; CEX secrets not needed here
         const raws = await Promise.all(items.map(async (it) => ({ it, raw: await Accounts.getRawById(it.id) })));
@@ -79,6 +80,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
             const sym = p.symbol.toUpperCase();
             if (!balances[sym]) balances[sym] = { free: 0 };
             balances[sym].free += Number(p.qty || 0);
+            dexSymbols.add(sym);
             // mark account ok
             if (p.account_id) await Accounts.health(p.account_id, 'ok');
           }
@@ -100,7 +102,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
         logger.warn(`[scheduler] prices error: ${e.message}`);
       }
 
-      const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore });
+      const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore, alwaysIncludeSymbols: Array.from(dexSymbols) });
       const state = loadState();
       addSnapshot(state, snapshot);
       saveStateAtomic(state);

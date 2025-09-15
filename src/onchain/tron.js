@@ -54,17 +54,36 @@ function decodeTronValue(res) {
 
 async function getTrc20Balance(tron, address, contractAddr, decimals) {
   try {
-    const c = await withTimeout(tron.contract().at(contractAddr), 10000);
+    // Normalize contract address to hex (TronWeb APIs are more reliable with hex)
+    let contractHex = contractAddr;
+    try {
+      if (/^[Tt]/.test(String(contractAddr || ''))) contractHex = tron.address.toHex(contractAddr);
+    } catch (_) { /* ignore */ }
+
+    try { if (address) tron.setAddress(address); } catch (_) { /* ignore */ }
+    const c = await withTimeout(tron.contract().at(contractHex), 10000);
+    const dbg = (String(process.env.TRON_DEBUG || '').toLowerCase() === 'true' || String(process.env.TRON_DEBUG || '') === '1');
+    if (dbg) console.log(`[tron] getTrc20Balance at ${contractHex} for ${address}`);
     // Try base58 address first
-    let res = await withTimeout(c.balanceOf(address).call(), 10000);
-    let val = decodeTronValue(res);
+    let res = null;
+    let val = 0;
+    try {
+      res = await withTimeout(c.balanceOf(address).call(), 10000);
+      val = decodeTronValue(res);
+      if (dbg) console.log(`[tron] balanceOf(base58) ->`, res, 'decoded=', val);
+    } catch (e) {
+      if (dbg) console.log('[tron] balanceOf(base58) error:', e && e.message ? e.message : String(e));
+    }
     if (!val) {
       // Fallback to hex address encoding
       try {
         const hex = tron.address.toHex(address);
         res = await withTimeout(c.balanceOf(hex).call(), 10000);
         val = decodeTronValue(res);
-      } catch (_) { /* ignore */ }
+        if (dbg) console.log(`[tron] balanceOf(hex) ->`, res, 'decoded=', val);
+      } catch (e) {
+        if (dbg) console.log('[tron] balanceOf(hex) error:', e && e.message ? e.message : String(e));
+      }
     }
     if (!val) {
       // Low-level fallback via triggerSmartContract
@@ -72,17 +91,19 @@ async function getTrc20Balance(tron, address, contractAddr, decimals) {
         const hex = tron.address.toHex(address);
         const ret = await withTimeout(
           tron.transactionBuilder.triggerSmartContract(
-            contractAddr,
+            contractHex,
             'balanceOf(address)',
             {},
-            [{ type: 'address', value: hex }]
+            [{ type: 'address', value: hex }],
+            address
           ),
           10000
         );
         if (ret && Array.isArray(ret.constant_result) && ret.constant_result[0]) {
           val = parseInt(ret.constant_result[0], 16) || 0;
         }
-      } catch (_) { /* ignore */ }
+        if (dbg) console.log(`[tron] triggerSmartContract ->`, ret, 'decoded=', val);
+      } catch (e) { if (dbg) console.log('[tron] triggerSmartContract error:', e && e.message ? e.message : String(e)); }
     }
     const denom = Math.pow(10, Number(decimals || 0));
     return denom > 0 ? (Number(val || 0) / denom) : 0;
@@ -115,15 +136,37 @@ async function getBalances(addresses, allowlistTokens = []) {
       }
       const trc20 = Array.isArray(acct && acct.trc20) ? acct.trc20 : [];
       for (const entry of trc20) {
-        if (entry && typeof entry === 'object') {
-          for (const [k, v] of Object.entries(entry)) {
-            const key = String(k).toLowerCase();
-            // values often come as strings
-            const raw = typeof v === 'string' ? v : (v && v._hex ? parseInt(v._hex, 16) : Number(v));
-            const val = Number(raw || 0);
-            if (!accountMap[key]) accountMap[key] = 0;
-            accountMap[key] += val;
-          }
+        if (!entry || typeof entry !== 'object') continue;
+        // Two observed shapes:
+        // 1) { "TR7N...": "123456" }
+        // 2) { contract_address: "TR7N...", balance: "123456", symbol: "USDT", decimals: 6, ... }
+        if (entry.contract_address) {
+          let key = String(entry.contract_address || '');
+          try {
+            // Normalize to base58 if hex
+            if (/^(0x)?41/i.test(key)) key = tron.address.fromHex(key);
+          } catch (_) { /* ignore */ }
+          key = key.toLowerCase();
+          const raw = entry.balance;
+          const val = Number(typeof raw === 'string' ? raw : Number(raw || 0));
+          if (!accountMap[key]) accountMap[key] = 0;
+          accountMap[key] += val;
+          continue;
+        }
+        const pairs = Object.entries(entry);
+        for (const [k, v] of pairs) {
+          let maybeAddr = String(k || '');
+          try {
+            // Convert hex contract keys to base58 if needed
+            if (/^(0x)?41/i.test(maybeAddr)) maybeAddr = tron.address.fromHex(maybeAddr);
+          } catch (_) { /* ignore */ }
+          maybeAddr = maybeAddr.toLowerCase();
+          // Heuristic: TRON contract addresses in base58 typically start with 't' or 'T'
+          if (!/^[t][a-z0-9]/i.test(maybeAddr)) continue;
+          const raw = typeof v === 'string' ? v : (v && v._hex ? parseInt(v._hex, 16) : Number(v));
+          const val = Number(raw || 0);
+          if (!accountMap[maybeAddr]) accountMap[maybeAddr] = 0;
+          accountMap[maybeAddr] += val;
         }
       }
     } catch (_) { /* ignore */ }
@@ -148,6 +191,9 @@ async function getBalances(addresses, allowlistTokens = []) {
         qty = await getTrc20Balance(tron, addr, tok.contract, tok.decimals);
       }
       if (qty > 0) out.push({ source: 'dex', chain: 'tron', address: addr, symbol: String(tok.symbol || '').toUpperCase(), qty });
+      else if (String(process.env.TRON_DEBUG || '').toLowerCase() === 'true' || String(process.env.TRON_DEBUG || '') === '1') {
+        console.log(`[tron] zero balance for ${tok.symbol} at ${addr} (contract ${tok.contract})`);
+      }
     }
   }
   return out;

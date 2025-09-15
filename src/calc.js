@@ -1,12 +1,13 @@
 const { avgCostForSymbol } = require('./lots');
 
-function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdIgnore = 10 }) {
+function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdIgnore = 10, alwaysIncludeSymbols = [] }) {
   const nowSec = Math.floor(Date.now() / 1000);
   const positions = [];
   let totalValue = 0;
   let weightedDayNumer = 0;
 
   const symbols = Object.keys(balances || {});
+  const includeSet = new Set((alwaysIncludeSymbols || []).map(s => String(s || '').toUpperCase()));
 
   for (const sym of symbols) {
     const free = Number(balances[sym]?.free || 0);
@@ -21,8 +22,9 @@ function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdI
 
     const reconciled = Math.abs((qty || 0) - free) <= 1e-8; // within tolerance
 
-    // Ignore positions worth less than minUsdIgnore
-    if (value < Number(minUsdIgnore || 0)) continue;
+    // Ignore positions worth less than minUsdIgnore (except forced-include symbols, e.g., DEX)
+    const mustInclude = includeSet.has(String(sym).toUpperCase());
+    if (!mustInclude && value < Number(minUsdIgnore || 0)) continue;
 
     positions.push({
       symbol: sym,

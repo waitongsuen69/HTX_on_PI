@@ -231,7 +231,14 @@ function attachTooltip(seg, data) {
 
 // Nav highlighting is handled by nav.js after it injects the toolbar
 
-refreshBtn.addEventListener('click', () => load('manual'));
+refreshBtn.addEventListener('click', async () => {
+  try {
+    setLoading(true);
+    await fetch('/api/refresh', { method: 'POST' });
+  } catch (_) { /* ignore */ }
+  finally { setLoading(false); }
+  load('manual');
+});
 load('auto');
 setInterval(() => load('auto'), 30_000);
 

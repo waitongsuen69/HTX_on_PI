@@ -128,6 +128,17 @@ app.get('/api/snapshot', async (req, res) => {
   }
 });
 
+// Manual refresh: capture a new snapshot immediately (includes CEX + DEX)
+app.post('/api/refresh', async (req, res) => {
+  try {
+    const ok = await captureCurrentSnapshot({ refFiat: REF_FIAT, minUsdIgnore: MIN_USD_IGNORE, logger: console });
+    if (!ok) return res.status(500).json({ ok: false, error: 'capture_failed' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error', message: e.message });
+  }
+});
+
 app.get('/api/history', (req, res) => {
   const n = Math.max(1, Math.min(1000, Number(req.query.n || 50)));
   const state = loadState();

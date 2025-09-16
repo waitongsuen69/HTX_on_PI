@@ -174,8 +174,6 @@ app.get('/api/history', (req, res) => {
   res.json({ history: hist });
 });
 
-// New Lots routes (Cost Basis Book)
-app.use('/api/lots', require('./routes/lots'));
 app.use('/api/market', require('./routes/market'));
 
 // Accounts API (sanitized)

@@ -7,7 +7,7 @@ Highlights
 ----------
 
 - Polls private balances and public prices; JSON UI.
-- Manual cost basis in `data/cost_basis_lots.json` (sequential IDs).
+ - Simple JSON storage; no DB.
 - Runtime flags: `DRY_RUN`, `NO_LISTEN`, `DEBUG`.
 
 Pi kiosk hint

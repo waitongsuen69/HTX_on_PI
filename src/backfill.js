@@ -1,5 +1,4 @@
 const { getBalances, getKlines } = require('./htx');
-const { loadLots } = require('./lots');
 const { loadState, addSnapshot, saveStateAtomic } = require('./state');
 const { computeSnapshot } = require('./calc');
 
@@ -18,7 +17,6 @@ async function backfillHistoryIfNeeded({ days = 180, refFiat = 'USD', minUsdIgno
   }
   try {
     logger.log(`[backfill] history empty; backfilling last ${days} days...`);
-    const lotsState = loadLots();
     const balances = await getBalances();
     const symbols = Object.keys(balances || {});
     if (symbols.length === 0) {
@@ -57,7 +55,7 @@ async function backfillHistoryIfNeeded({ days = 180, refFiat = 'USD', minUsdIgno
         if (!bar) continue;
         prices[base] = { price: Number(bar.close), day_pct: dayPctFromBar(bar) };
       }
-      const snap = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore });
+      const snap = computeSnapshot({ balances, prices, refFiat, minUsdIgnore });
       // Override snapshot time to bar time (seconds)
       snap.time = Math.floor(ts / 1000);
       addSnapshot(state, snap);
@@ -76,11 +74,10 @@ const { getPrices } = require('./htx');
 
 async function captureCurrentSnapshot({ refFiat = 'USD', minUsdIgnore = 10, logger = console } = {}) {
   try {
-    const lotsState = loadLots();
     const balances = await getBalances();
     const symbols = Object.keys(balances || {});
     const prices = await getPrices(symbols);
-    const snap = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore });
+    const snap = computeSnapshot({ balances, prices, refFiat, minUsdIgnore });
     const state = loadState();
     addSnapshot(state, snap);
     saveStateAtomic(state);

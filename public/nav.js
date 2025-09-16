@@ -15,7 +15,6 @@
     const container = document.createElement('div');
     container.className = 'nav';
     container.appendChild(createLink('nav-dashboard', '/', 'Dashboard'));
-    container.appendChild(createLink('nav-lots', '/lots.html', 'Lots'));
     container.appendChild(createLink('nav-settings', '/settings.html', 'Settings'));
     mount.appendChild(container);
 
@@ -24,9 +23,6 @@
       const path = location.pathname;
       if (path === '/' || path === '/index.html') {
         const el = document.getElementById('nav-dashboard');
-        if (el) el.classList.add('active');
-      } else if (path.includes('lots')) {
-        const el = document.getElementById('nav-lots');
         if (el) el.classList.add('active');
       } else if (path.includes('settings')) {
         const el = document.getElementById('nav-settings');

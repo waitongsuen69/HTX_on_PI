@@ -3,7 +3,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/`: core server — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`, `lots.js`.
+- `src/`: core server — `server.js`, `scheduler.js`, `htx.js`, `calc.js`, `state.js`.
 - `src/services/`, `src/routes/`, `src/onchain/`: HTTP routes and on‑chain providers (`tron.js`, `cardano.js`).
 - `public/`: static PWA — `index.html`, `app.js`, `settings.html`, `service-worker.js`, icons.
 - `test/`: Jest specs (`test/**/*.spec.js`).

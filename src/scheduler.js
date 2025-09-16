@@ -1,5 +1,4 @@
 const { getPrices, createHTXClient } = require('./htx');
-const { loadLots } = require('./lots');
 const { loadState, addSnapshot, saveStateAtomic } = require('./state');
 const { computeSnapshot } = require('./calc');
 const Accounts = require('./accounts');
@@ -21,7 +20,6 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
 
   async function tickOnce() {
     try {
-      const lotsState = loadLots();
       // balances merged across enabled accounts
       let balances = {};
       // track per-platform symbol balances to compute platform allocation later
@@ -164,7 +162,7 @@ function createScheduler({ intervalMs = 60_000, logger = console, refFiat = 'USD
       }
 
       const resolvedMin = typeof getMinUsdIgnore === 'function' ? (Number(await getMinUsdIgnore()) || minUsdIgnore) : minUsdIgnore;
-      const snapshot = computeSnapshot({ balances, prices, lotsState, refFiat, minUsdIgnore: resolvedMin, alwaysIncludeSymbols: Array.from(alwaysInclude) });
+      const snapshot = computeSnapshot({ balances, prices, refFiat, minUsdIgnore: resolvedMin, alwaysIncludeSymbols: Array.from(alwaysInclude) });
       // Compute platform allocation (value-weighted) from per-platform symbol balances
       const platformValues = { HTX: 0, TRON: 0, CARDANO: 0 };
       const symPrice = (s) => { const p = prices[s]; return p && p.price != null ? Number(p.price) : null; };

@@ -1,7 +1,7 @@
 HTX Pi Monitor
 ==============
 
-Raspberry Pi web UI for HTX (Huobi) balances. Pulls private balances + public prices and shows per‑asset value, 24h change, and simple P/L vs manual cost basis (JSON). KISS: minimal deps, JSON files, no DB.
+Raspberry Pi web UI for HTX (Huobi) balances. Pulls private balances + public prices and shows per‑asset value and 24h change. KISS: minimal deps, JSON files, no DB.
 
 Quickstart
 ----------
@@ -10,7 +10,7 @@ Quickstart
 - `npm i`
 - `npm start`
 - Open `http://<pi-ip>:<PORT>` (default 8080)
-- Go to `/accounts.html` and add your HTX account (CEX) with API keys
+- Go to `Settings` (`/settings.html`) and add your HTX account (CEX) with API keys
 
 PWA (Installable App)
 ---------------------
@@ -32,7 +32,6 @@ Files
 -----
 
 - `data/state.json` (created at runtime)
-- `data/cost_basis_lots.json` (manual cost basis / lots)
 - `data/accounts.json` (local accounts registry; not committed)
 
 Accounts Registry
@@ -57,7 +56,7 @@ Accounts Registry
 Accounts UI & API
 -----------------
 
-- UI: open `/accounts.html` to view and manage accounts (Add/Edit/Delete/Toggle).
+- UI: open `/settings.html` to view and manage accounts (Add/Edit/Delete/Toggle) and import/export app data.
 - API (read‑only sanitized payloads; no secrets returned):
   - `GET /api/accounts` → `{ items: [...] }`
   - `POST /api/accounts/:id/toggle` → `{ ok: true }`
@@ -70,7 +69,6 @@ Data APIs
 - `GET /api/health`
 - `GET /api/snapshot`
 - `GET /api/history?n=50`
-- `GET /api/lots` (cost basis lots)
 
 Scripts
 -------
@@ -82,7 +80,7 @@ Scripts
 Troubleshooting
 ---------------
 
-- No balances: ensure at least one enabled CEX HTX account exists in `/accounts.html` with valid keys.
+- No balances: ensure at least one enabled CEX HTX account exists in `/settings.html` with valid keys.
 - No Spot wallet in HTX: create a Spot account in HTX; balances fetch requires it.
 - Port/bind errors: change `PORT` or use `BIND_ADDR=127.0.0.1`.
 - Restricted env: `NO_LISTEN=1`; use scripts to validate.
@@ -100,20 +98,4 @@ Notes
 -----
 
 - Atomic JSON writes are used to survive power loss.
-- Sequential lot IDs are maintained in `meta.last_id`.
-- P/L% is computed against remaining lots average cost ignoring lots with unknown cost.
 - Prices and totals are computed in USD only for now.
-
-Cost Basis (Lots) UI & CSV
---------------------------
-
-- UI: open `/lots.html` for a simple lot book manager (create/edit/delete, import/export, summaries).
-- Storage backend: `STORAGE_BACKEND=CSV|JSON` (default `JSON`). Data lives under `./data`.
-- CSV header: `id,date,asset,action,qty,unit_cost_usd,note` (see `docs/CSV_FORMAT.md`).
-- Actions: `buy|sell|deposit|withdraw`. Sign rules: buy/deposit positive; sell/withdraw negative.
-- Matching: LOFO (lowest unit cost out first). Deposits without cost are treated as highest cost for matching.
-- Import examples:
-  - `curl -F file=@cost_basis_lots.csv http://localhost:$PORT/api/lots/import`
-  - `curl -H 'content-type: application/json' -d '{"lots":[...]}" http://localhost:$PORT/api/lots/import`
-- Export examples: `/api/lots/export?format=csv` or `?format=json`
-- Edits/deletes are blocked once a lot is (partially) consumed by matching.

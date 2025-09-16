@@ -1,5 +1,3 @@
-const { avgCostForSymbol } = require('./lots');
-
 function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdIgnore = 10, alwaysIncludeSymbols = [] }) {
   const nowSec = Math.floor(Date.now() / 1000);
   const positions = [];
@@ -20,10 +18,9 @@ function computeSnapshot({ balances, prices, lotsState, refFiat = 'USD', minUsdI
     const day_pct = pr?.day_pct ?? null;
     const value = price != null ? (free * price) : 0;
 
-    const { avg_cost, qty } = avgCostForSymbol(lotsState || {}, sym);
-    const pnl_pct = avg_cost > 0 && price != null ? ((price / avg_cost - 1) * 100) : null;
-
-    const reconciled = Math.abs((qty || 0) - free) <= 1e-8; // within tolerance
+    // Lots removed: PnL and reconciliation not computed in this build
+    const pnl_pct = null;
+    const reconciled = true;
 
     // Ignore positions worth less than minUsdIgnore, unless mustInclude
     if (!mustInclude && value < Number(minUsdIgnore || 0)) continue;
